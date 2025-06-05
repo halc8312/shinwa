@@ -1,3 +1,4 @@
+# .github/workflows/claude.yml
 name: Claude PR Assistant
 
 on:
@@ -11,7 +12,36 @@ on:
     types: [submitted]
 
 jobs:
+  # 1) ───── アクセストークンを毎回リフレッシュ ─────
+  refresh-token:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # gh secret set に必須
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get new Claude OAuth token
+        id: get
+        shell: bash
+        env:
+          REFRESH: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
+        run: |
+          NEW=$(curl -sS https://api.anthropic.com/oauth/token \
+                 -d 'grant_type=refresh_token' \
+                 -d "refresh_token=$REFRESH" | jq -r '.access_token')
+          echo "::add-mask::$NEW"
+          echo "token=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Update repo secret CLAUDE_ACCESS_TOKEN
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}   # repo 権限付き PAT
+        run: |
+          echo "${{ steps.get.outputs.token }}" \
+            | gh secret set CLAUDE_ACCESS_TOKEN -b-
+
+  # 2) ───── Claude Code Action 本体 ─────
   claude-code-action:
+    needs: refresh-token
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
@@ -24,8 +54,7 @@ jobs:
       issues: read
       id-token: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
@@ -36,14 +65,15 @@ jobs:
           claude_access_token: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
           claude_refresh_token: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
           claude_expires_at: ${{ secrets.CLAUDE_EXPIRES_AT }}
-          
+
+          # ─────────── ここでモデルとカスタム指示を指定 ───────────
+          model: "claude-opus-4-20250514"
+          custom_instructions: |
+            あなたは私たちのウェブアプリの専属エンジニアです。
+            - コードは必ず型安全に
+            - PR にはテストを追加
+            - 日本語でコメントを書く
+          # ────────────────────────────────────────
+
           timeout_minutes: "60"
-          # Optional: add custom trigger phrase (default: @claude)
-          # trigger_phrase: "/claude"
-          # Optional: add assignee trigger for issues
-          # assignee_trigger: "claude"
-          # Optional: add custom environment variables (YAML format)
-          # claude_env: |
-          #   NODE_ENV: test
-          #   DEBUG: true
-          #   API_URL: https://api.example.com
+          # trigger_phrase 等、必要に応じて追加
