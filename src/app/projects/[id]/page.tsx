@@ -26,7 +26,7 @@ export default function ProjectDashboard() {
   const [showAdvancedAISettings, setShowAdvancedAISettings] = useState(false)
   const [isExecuting, setIsExecuting] = useState(false)
   const [executionLog, setExecutionLog] = useState<string[]>([])
-  const [projectMeta, setProjectMeta] = useState<{ plotOutline?: string; themes?: string[] } | null>(null)
+  const [projectMeta, setProjectMeta] = useState<{ plotOutline?: string; themes?: string[]; genre?: string } | null>(null)
   const [pendingChapter, setPendingChapter] = useState<Chapter | null>(null)
   const [showChapterPreview, setShowChapterPreview] = useState(false)
   const [chapters, setChapters] = useState<Chapter[]>([])

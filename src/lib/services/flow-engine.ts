@@ -54,7 +54,7 @@ export class FlowEngine {
   private emit(event: 'flowComplete', context: FlowContext): void
   private emit(event: FlowEventType, ...args: any[]): void {
     const listeners = this.eventListeners[event]
-    listeners.forEach(listener => listener(...args as any[]))
+    listeners.forEach(listener => (listener as any)(...args))
   }
 
   async execute(initialContext: FlowContext = {}): Promise<FlowContext> {
