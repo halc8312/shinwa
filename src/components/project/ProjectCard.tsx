@@ -11,9 +11,9 @@ interface ProjectCardProps {
 
 export default function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
-      <div className="mb-4">
-        <h3 className="text-xl font-semibold mb-2">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 sm:p-6">
+      <div className="mb-3 sm:mb-4">
+        <h3 className="text-lg sm:text-xl font-semibold mb-2">
           <Link 
             href={`/projects/${project.id}`}
             className="text-gray-900 dark:text-white hover:text-blue-600 transition-colors"
@@ -21,17 +21,17 @@ export default function ProjectCard({ project, onDelete, onDuplicate }: ProjectC
             {project.name}
           </Link>
         </h3>
-        <p className="text-gray-600 dark:text-gray-400 line-clamp-2">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 line-clamp-2">
           {project.description || '説明なし'}
         </p>
       </div>
 
-      <div className="text-sm text-gray-500 dark:text-gray-500 mb-4 space-y-1">
+      <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-500 mb-3 sm:mb-4 space-y-1">
         <p>作成日: {formatDate(project.createdAt)}</p>
         <p>更新日: {formatDate(project.updatedAt)}</p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         <Link href={`/projects/${project.id}`}>
           <Button size="sm" variant="primary">
             開く

@@ -110,42 +110,43 @@ export default function ProjectDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6 lg:py-8">
         {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
                 {project.name} - 統合ダッシュボード
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                 すべての執筆情報を一元管理
               </p>
             </div>
             <Link href={`/projects/${projectId}`}>
-              <Button variant="secondary">
+              <Button variant="secondary" size="sm" className="sm:text-base">
                 プロジェクトホームへ
               </Button>
             </Link>
           </div>
 
           {/* タブナビゲーション */}
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="-mb-px flex space-x-8">
+          <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max">
               {tabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`
-                    py-2 px-1 border-b-2 font-medium text-sm
+                    py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap
                     ${activeTab === tab.id
                       ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }
                   `}
                 >
-                  <span className="mr-2">{tab.icon}</span>
-                  {tab.label}
+                  <span className="mr-1 sm:mr-2">{tab.icon}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.slice(0, 3)}</span>
                 </button>
               ))}
             </nav>
@@ -218,10 +219,10 @@ function OverviewTab({ project, chapters, characters, worldSettings, writingRule
   const totalBackgroundEvents = chapters.reduce((sum, ch) => sum + (ch.backgroundEvents?.length || 0), 0)
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
       {/* 執筆統計 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold mb-4">📊 執筆統計</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">📊 執筆統計</h3>
         <dl className="space-y-2">
           <div className="flex justify-between">
             <dt className="text-gray-600 dark:text-gray-400">総章数</dt>
