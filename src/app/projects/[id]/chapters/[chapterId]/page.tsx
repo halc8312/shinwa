@@ -228,25 +228,25 @@ export default function ChapterDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6 lg:py-8">
         {/* ヘッダー */}
-        <div className="mb-8">
-          <nav className="text-sm mb-4">
+        <div className="mb-4 sm:mb-6 lg:mb-8">
+          <nav className="text-xs sm:text-sm mb-3 sm:mb-4 overflow-x-auto whitespace-nowrap">
             <Link href="/projects" className="text-blue-600 hover:underline">
               プロジェクト一覧
             </Link>
-            <span className="mx-2 text-gray-500">/</span>
+            <span className="mx-1 sm:mx-2 text-gray-500">/</span>
             <Link href={`/projects/${projectId}`} className="text-blue-600 hover:underline">
               {project.name}
             </Link>
-            <span className="mx-2 text-gray-500">/</span>
+            <span className="mx-1 sm:mx-2 text-gray-500">/</span>
             <span className="text-gray-700 dark:text-gray-300">{chapter.title}</span>
           </nav>
 
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white line-clamp-1">
                   {chapter.title}
                 </h1>
                 <button
@@ -259,26 +259,29 @@ export default function ChapterDetailPage() {
                   </svg>
                 </button>
               </div>
-              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                 <span>第{chapter.number}章</span>
                 <span>{countCharacters(chapter.content)}文字</span>
-                <span>作成: {formatDate(chapter.createdAt)}</span>
-                <span>更新: {formatDate(chapter.updatedAt)}</span>
+                <span className="hidden sm:inline">作成: {formatDate(chapter.createdAt)}</span>
+                <span className="hidden sm:inline">更新: {formatDate(chapter.updatedAt)}</span>
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               {activeTab === 'content' && !isEditing && (
                 <Button
                   onClick={() => setIsEditing(true)}
                   variant="secondary"
+                  size="sm"
+                  className="sm:text-base"
                 >
                   編集
                 </Button>
               )}
               <Link href={`/projects/${projectId}`}>
-                <Button variant="secondary">
-                  プロジェクトに戻る
+                <Button variant="secondary" size="sm" className="sm:text-base">
+                  <span className="hidden sm:inline">プロジェクトに戻る</span>
+                  <span className="sm:hidden">戻る</span>
                 </Button>
               </Link>
             </div>
@@ -286,11 +289,11 @@ export default function ChapterDetailPage() {
         </div>
 
         {/* タブナビゲーション */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-4 sm:mb-6">
+          <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
             <button
               onClick={() => setActiveTab('content')}
-              className={`px-6 py-3 font-medium transition-colors ${
+              className={`px-3 sm:px-6 py-3 font-medium text-sm sm:text-base transition-colors whitespace-nowrap ${
                 activeTab === 'content'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
@@ -300,32 +303,34 @@ export default function ChapterDetailPage() {
             </button>
             <button
               onClick={() => setActiveTab('background')}
-              className={`px-6 py-3 font-medium transition-colors ${
+              className={`px-3 sm:px-6 py-3 font-medium text-sm sm:text-base transition-colors whitespace-nowrap ${
                 activeTab === 'background'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              背景イベント
+              <span className="hidden sm:inline">背景イベント</span>
+              <span className="sm:hidden">背景</span>
               {chapter.backgroundEvents.length > 0 && (
-                <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">
+                <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-blue-100 text-blue-700 rounded-full">
                   {chapter.backgroundEvents.length}
                 </span>
               )}
             </button>
             <button
               onClick={() => setActiveTab('state')}
-              className={`px-6 py-3 font-medium transition-colors ${
+              className={`px-3 sm:px-6 py-3 font-medium text-sm sm:text-base transition-colors whitespace-nowrap ${
                 activeTab === 'state'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              章の状態
+              <span className="hidden sm:inline">章の状態</span>
+              <span className="sm:hidden">状態</span>
             </button>
             <button
               onClick={() => setActiveTab('foreshadowing')}
-              className={`px-6 py-3 font-medium transition-colors ${
+              className={`px-3 sm:px-6 py-3 font-medium text-sm sm:text-base transition-colors whitespace-nowrap ${
                 activeTab === 'foreshadowing'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
@@ -333,14 +338,14 @@ export default function ChapterDetailPage() {
             >
               伏線
               {chapter.state.foreshadowing.length > 0 && (
-                <span className="ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full">
+                <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-purple-100 text-purple-700 rounded-full">
                   {chapter.state.foreshadowing.length}
                 </span>
               )}
             </button>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {/* 本文タブ */}
             {activeTab === 'content' && (
               <div>

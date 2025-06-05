@@ -55,26 +55,28 @@ export default function ProjectsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
               プロジェクト一覧
             </h1>
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               <Link href="/">
-                <Button variant="secondary">
+                <Button variant="secondary" size="sm" className="sm:text-base">
                   ホームに戻る
                 </Button>
               </Link>
               <Button
                 onClick={() => setShowCreateModal(true)}
+                size="sm"
+                className="sm:text-base"
               >
                 新規プロジェクト
               </Button>
             </div>
           </div>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
             小説プロジェクトを管理します。プロジェクトを選択して執筆を開始しましょう。
           </p>
         </div>
@@ -84,9 +86,9 @@ export default function ProjectsPage() {
             <p className="text-gray-500">読み込み中...</p>
           </div>
         ) : projects.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 sm:p-12 text-center">
             <svg
-              className="w-24 h-24 mx-auto mb-6 text-gray-400"
+              className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -98,21 +100,22 @@ export default function ProjectsPage() {
                 d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
               />
             </svg>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">
               プロジェクトがありません
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4 sm:mb-6">
               最初のプロジェクトを作成して、小説の執筆を始めましょう。
             </p>
             <Button
               onClick={() => setShowCreateModal(true)}
-              size="lg"
+              size="md"
+              className="sm:text-lg sm:px-6 sm:py-3"
             >
               最初のプロジェクトを作成
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {projects.map((project) => (
               <ProjectCard
                 key={project.id}
