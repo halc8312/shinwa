@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: shinwa
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NEXT_PUBLIC_OPENAI_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_ANTHROPIC_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_OPENAI_BASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_ANTHROPIC_BASE_URL
+        sync: false
