@@ -11,6 +11,7 @@ import { worldService } from '@/lib/services/world-service'
 import { aiManager } from '@/lib/ai/manager'
 import { useAppStore } from '@/lib/store'
 import { NOVEL_TYPE_CONFIGS } from '@/lib/config/novel-types'
+import AISettings, { AISettingsData } from '@/components/settings/AISettings'
 
 interface CreateProjectModalProps {
   isOpen: boolean
@@ -34,8 +35,9 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null)
   const [generationComplete, setGenerationComplete] = useState(false)
+  const [showAISettings, setShowAISettings] = useState(false)
   
-  const { currentProvider } = useAppStore()
+  const { currentProvider, setCurrentProvider, setApiKey } = useAppStore()
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -140,14 +142,21 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
     onClose()
   }
 
+  const handleAISettingsSave = (settings: AISettingsData) => {
+    setCurrentProvider(settings.provider)
+    setApiKey(settings.provider, settings.apiKey)
+    setError('') // APIキー設定後はエラーをクリア
+  }
+
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="新規プロジェクト作成"
-    >
-      <div className="space-y-4">
-        {!isGenerating ? (
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        title="新規プロジェクト作成"
+      >
+        <div className="space-y-4">
+          {!isGenerating ? (
           <>
             <Input
               label="プロジェクト名"
@@ -244,7 +253,18 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
             </div>
 
             {error && (
-              <p className="text-sm text-red-600">{error}</p>
+              <div className="space-y-2">
+                <p className="text-sm text-red-600">{error}</p>
+                {error.includes('AIプロバイダーが設定されていません') && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setShowAISettings(true)}
+                  >
+                    AI設定を開く
+                  </Button>
+                )}
+              </div>
             )}
 
             <div className="flex justify-end gap-3 pt-4">
@@ -332,5 +352,12 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
         )}
       </div>
     </Modal>
+
+    <AISettings
+      isOpen={showAISettings}
+      onClose={() => setShowAISettings(false)}
+      onSave={handleAISettingsSave}
+    />
+    </>
   )
 }

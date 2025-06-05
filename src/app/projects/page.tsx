@@ -7,11 +7,15 @@ import ProjectCard from '@/components/project/ProjectCard'
 import CreateProjectModal from '@/components/project/CreateProjectModal'
 import Button from '@/components/ui/Button'
 import Link from 'next/link'
+import AISettings, { AISettingsData } from '@/components/settings/AISettings'
+import { useAppStore } from '@/lib/store'
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showAISettings, setShowAISettings] = useState(false)
+  const { setCurrentProvider, setApiKey } = useAppStore()
 
   const loadProjects = async () => {
     setIsLoading(true)
@@ -53,6 +57,11 @@ export default function ProjectsPage() {
     }
   }
 
+  const handleAISettingsSave = (settings: AISettingsData) => {
+    setCurrentProvider(settings.provider)
+    setApiKey(settings.provider, settings.apiKey)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -67,6 +76,12 @@ export default function ProjectsPage() {
                   ホームに戻る
                 </Button>
               </Link>
+              <Button
+                variant="secondary"
+                onClick={() => setShowAISettings(true)}
+              >
+                AI設定
+              </Button>
               <Button
                 onClick={() => setShowCreateModal(true)}
               >
@@ -128,6 +143,12 @@ export default function ProjectsPage() {
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           onCreated={loadProjects}
+        />
+
+        <AISettings
+          isOpen={showAISettings}
+          onClose={() => setShowAISettings(false)}
+          onSave={handleAISettingsSave}
         />
       </div>
     </div>
