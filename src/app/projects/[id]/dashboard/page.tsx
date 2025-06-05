@@ -957,7 +957,7 @@ function CharacterOverviewTab({ characters, chapters }: {
   // 選択されたキャラクターの成長曲線データを作成
   const getCharacterGrowthData = (character: Character) => {
     // キャラクターアークに基づいた成長データ
-    const hasArc = character.arc && character.arc.beginning && character.arc.journey && character.arc.end
+    const hasArc = character.arc && character.arc.start && character.arc.journey && character.arc.end
     
     // キャラクターが登場する章のみを取得
     const chaptersWithCharacter = chapters
