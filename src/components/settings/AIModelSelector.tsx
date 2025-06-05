@@ -159,7 +159,7 @@ export default function AIModelSelector({
               コンテキストウィンドウ: {selectedModel.contextWindow.toLocaleString()} トークン
             </p>
           )}
-          {selectedModel.pricing && (
+          {'pricing' in selectedModel && selectedModel.pricing && (
             <p className="text-xs text-gray-500">
               価格: ${selectedModel.pricing.input}/1M 入力 | ${selectedModel.pricing.output}/1M 出力
             </p>

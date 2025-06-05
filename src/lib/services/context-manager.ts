@@ -25,7 +25,8 @@ export class ContextManager {
       name: 'Unknown',
       provider: 'openai',
       contextWindow: 8192,
-      description: ''
+      description: '',
+      capabilities: []
     }
     
     // コンテキストウィンドウの計算

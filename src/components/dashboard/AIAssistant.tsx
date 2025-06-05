@@ -160,7 +160,7 @@ ${ongoingPlots.map(p => `- ${p.description}`).join('\n')}
 ${worldSettings ? `${worldSettings.name} - ${worldSettings.era}` : '未設定'}
 
 【執筆ルール】
-視点: ${writingRules?.pov || '未設定'}
+視点: ${writingRules?.pointOfView || '未設定'}
 時制: ${writingRules?.tense || '未設定'}
 文体: ${writingRules?.style || '未設定'}
 `
@@ -232,8 +232,10 @@ ${characterInfo}
               <div className="space-y-6">
                 {/* モード選択 */}
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    分析モード
+                  </label>
                   <Select
-                    label="分析モード"
                     value={mode}
                     onChange={(e) => setMode(e.target.value as AssistantMode)}
                     options={modeOptions}

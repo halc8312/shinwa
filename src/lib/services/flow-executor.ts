@@ -1,4 +1,5 @@
-import { FlowStep, FlowContext, FlowExecutor } from './flow-engine'
+import { FlowContext, FlowExecutor } from './flow-engine'
+import { FlowStep } from '@/lib/types'
 import { aiManager } from '../ai/manager'
 import { AIMessage } from '../ai/types'
 import { 
@@ -153,7 +154,7 @@ export class NovelFlowExecutor implements FlowExecutor {
     const modelSettings = getFeatureModelSettings(this.projectId, 'validation')
     
     // ルールエンジンによるチェック
-    let rulesCheckResult = { isValid: true, issues: null }
+    let rulesCheckResult = { isValid: true, issues: '' }
     
     if (context.chapterContent && this.rulesEngine) {
       const chapter: Chapter = {
@@ -486,12 +487,12 @@ ${rulesPrompt}
 
 【伏線情報】
 設置する伏線:
-${context.chapterOutline.foreshadowingToPlant?.map(f => 
+${context.chapterOutline.foreshadowingToPlant?.map((f: any) => 
   `- ${f.hint} (${f.scope}伏線, 重要度: ${f.significance}, 回収予定: 第${f.plannedRevealChapter || '未定'}章)`
 ).join('\n') || '- なし'}
 
 回収する伏線:
-${context.chapterOutline.foreshadowingToReveal?.map(hint => `- ${hint}`).join('\n') || '- なし'}
+${context.chapterOutline.foreshadowingToReveal?.map((hint: any) => `- ${hint}`).join('\n') || '- なし'}
 
 執筆時の注意: ${context.chapterOutline.notes || 'なし'}`)
       }
@@ -687,8 +688,8 @@ ${JSON.stringify(context.previousChapters, null, 2)}
     // 背景イベントから世界の変化を抽出
     if (context.backgroundEvents) {
       context.backgroundEvents
-        .filter(event => event.impact === 'high')
-        .forEach(event => {
+        .filter((event: any) => event.impact === 'high')
+        .forEach((event: any) => {
           changes.push(event.description)
         })
     }
@@ -720,10 +721,10 @@ ${JSON.stringify(context.previousChapters, null, 2)}
     
     // 章立てから詳細な伏線情報を追加
     if (chapterOutline?.foreshadowingToPlant) {
-      chapterOutline.foreshadowingToPlant.forEach((planned) => {
+      chapterOutline.foreshadowingToPlant.forEach((planned: any) => {
         // 重複チェック（同じヒントがすでに存在しないか）
-        const exists = newForeshadowing.some(f => f.hint === planned.hint) || 
-                      previousForeshadowing.some(f => f.hint === planned.hint)
+        const exists = newForeshadowing.some((f: any) => f.hint === planned.hint) || 
+                      previousForeshadowing.some((f: any) => f.hint === planned.hint)
         
         if (!exists) {
           newForeshadowing.push({
@@ -741,7 +742,7 @@ ${JSON.stringify(context.previousChapters, null, 2)}
     }
     
     // 既存の伏線の状態を更新
-    const updatedForeshadowing = previousForeshadowing.map(f => {
+    const updatedForeshadowing = previousForeshadowing.map((f: any) => {
       // chapterPlanからの回収
       if (context.chapterPlan?.foreshadowingToResolve?.includes(f.hint)) {
         return {

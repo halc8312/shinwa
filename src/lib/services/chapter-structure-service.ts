@@ -35,7 +35,9 @@ export class ChapterStructureService {
     plotOutline?: string
   }): Promise<ChapterStructure> {
     const modelSettings = getFeatureModelSettings(this.projectId, 'chapterPlanning')
-    const template = STORY_STRUCTURE_TEMPLATES[params.structureType]
+    const template = params.structureType === 'custom' 
+      ? null 
+      : STORY_STRUCTURE_TEMPLATES[params.structureType as keyof typeof STORY_STRUCTURE_TEMPLATES]
     
     // プロジェクトの関連データを読み込む
     const projectData = await this.loadProjectData()
@@ -206,10 +208,12 @@ export class ChapterStructureService {
    * システムプロンプトの構築
    */
   private buildSystemPrompt(genre: string, structureType: string, writingRules?: WritingRules): string {
-    const template = STORY_STRUCTURE_TEMPLATES[structureType]
+    const template = structureType === 'custom' 
+      ? null 
+      : STORY_STRUCTURE_TEMPLATES[structureType as keyof typeof STORY_STRUCTURE_TEMPLATES]
     
     let prompt = `あなたは${genre}小説の構成を専門とする編集者です。
-${template.name}（${template.description}）に基づいて、魅力的で詳細な章立てを作成してください。
+${template ? `${template.name}（${template.description}）に基づいて` : '独自の構成で'}、魅力的で詳細な章立てを作成してください。
 
 `
 
@@ -462,7 +466,7 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
       
       if (tension <= 30) type = 'calm'
       else if (tension >= 80) type = 'peak'
-      else if (ch.number > 1 && chapters[ch.number - 2]?.tensionLevel > ch.tensionLevel) {
+      else if (ch.number > 1 && (chapters[ch.number - 2]?.tensionLevel ?? 5) > (ch.tensionLevel ?? 5)) {
         type = 'falling'
       }
       
@@ -497,8 +501,10 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
     structureType: StoryStructure['type']
   ): ChapterStructure {
     const chapterCount = novelType.chapterCountRange.min
-    const template = STORY_STRUCTURE_TEMPLATES[structureType]
-    const acts = this.createActs(template, chapterCount)
+    const template = structureType === 'custom' 
+      ? null 
+      : STORY_STRUCTURE_TEMPLATES[structureType as keyof typeof STORY_STRUCTURE_TEMPLATES]
+    const acts = template ? this.createActs(template, chapterCount) : []
     
     // 各章に適切なテンションと目的を設定
     const chapters: ChapterOutline[] = Array.from({ length: chapterCount }, (_, i) => {

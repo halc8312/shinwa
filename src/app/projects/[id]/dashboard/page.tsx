@@ -1188,12 +1188,12 @@ function CharacterOverviewTab({ characters, chapters }: {
                               <div
                                 className="w-8 h-8 rounded-full mb-1"
                                 style={{ 
-                                  backgroundColor: emotionColors[data.dominant as keyof typeof emotionColors]
+                                  backgroundColor: data ? emotionColors[data.dominant as keyof typeof emotionColors] : 'transparent'
                                 }}
-                                title={`第${data.chapter}章: ${data.dominant}`}
+                                title={data ? `第${data.chapter}章: ${data.dominant}` : ''}
                               />
                               <span className="text-xs text-gray-500">
-                                {data.chapter}
+                                {data?.chapter}
                               </span>
                             </div>
                           ))}
@@ -1460,15 +1460,11 @@ function PlotManagementTab({ chapters, chapterStructure }: { chapters: Chapter[]
                     <div className="flex gap-3 text-xs text-gray-600 dark:text-gray-400">
                       <span>📖 第{plot.chapter}章で発生</span>
                       <span>⏱️ {chapters.length - plot.chapter}章経過</span>
-                      <span className={`
-                        ${plot.type === 'conflict' ? '⚔️ コンフリクト' 
-                          : plot.type === 'mystery' ? '🔍 謎' 
-                          : plot.type === 'goal' ? '🎯 目標' 
-                          : '📌 その他'}
-                      `}>
-                        {plot.type === 'conflict' ? '⚔️ コンフリクト' 
-                          : plot.type === 'mystery' ? '🔍 謎' 
-                          : plot.type === 'goal' ? '🎯 目標' 
+                      <span>
+                        {plot.type === 'setup' ? '📌 セットアップ'
+                          : plot.type === 'conflict' ? '⚔️ コンフリクト' 
+                          : plot.type === 'climax' ? '🎯 クライマックス' 
+                          : plot.type === 'resolution' ? '✨ 解決' 
                           : '📌 その他'}
                       </span>
                     </div>

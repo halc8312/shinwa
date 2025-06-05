@@ -239,8 +239,10 @@ export default function ChapterStructureSetup({
 
       {/* 構造選択 */}
       <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          物語構造
+        </label>
         <Select
-          label="物語構造"
           value={structureType}
           onChange={(e) => setStructureType(e.target.value)}
           options={structureOptions}
@@ -303,13 +305,13 @@ export default function ChapterStructureSetup({
                           {chapter.title && `: ${chapter.title}`}
                         </span>
                         <span className={`text-xs px-2 py-1 rounded-full ${
-                          chapter.tensionLevel >= 8 
+                          (chapter.tensionLevel ?? 5) >= 8 
                             ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
-                            : chapter.tensionLevel <= 3
+                            : (chapter.tensionLevel ?? 5) <= 3
                             ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
                             : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
                         }`}>
-                          テンション: {chapter.tensionLevel}/10
+                          テンション: {chapter.tensionLevel ?? 5}/10
                         </span>
                       </div>
                       

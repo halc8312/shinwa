@@ -95,7 +95,7 @@ ${events.map((e, i) => `${i + 1}. ${e.description}`).join('\n')}
 
       // レスポンスを解析してスコアを抽出
       const scores = new Map<number, number>()
-      const matches = response.content.matchAll(/(\d+):(\d+)/g)
+      const matches = Array.from(response.content.matchAll(/(\d+):(\d+)/g))
       for (const match of matches) {
         scores.set(parseInt(match[1]) - 1, parseInt(match[2]))
       }

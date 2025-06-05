@@ -5,7 +5,6 @@ import {
   WritingRules, 
   WorldSettings, 
   Character, 
-  CharacterRelationship,
   Culture,
   MagicSystem
 } from '../types'
@@ -33,6 +32,7 @@ export interface GeneratedContent {
   characters: Character[]
   plotOutline?: string
   themes?: string[]
+  genre?: string
 }
 
 export class ProjectGeneratorService {
@@ -460,10 +460,6 @@ ${worldSettings.name} - ${worldSettings.description}
         background: '普通の生活を送っていたが、運命に導かれて冒険に出る',
         appearance: '平均的な体格で、明るい瞳を持つ',
         goals: ['仲間を守る', '世界を救う'],
-        conflicts: '自分の力への疑い',
-        growthArc: '弱さを受け入れ、真の強さを見つける',
-        skills: ['決断力', '適応力', 'リーダーシップ'],
-        weaknesses: ['経験不足', '感情的になりやすい'],
         relationships: [],
         arc: {
           start: '普通の生活を送る若者',
@@ -581,7 +577,7 @@ ${JSON.stringify(characterList, null, 2)}
       if (char.relationships.length > 0) {
         sections.push('関係性:')
         char.relationships.forEach(rel => {
-          const target = content.characters.find(c => c.id === rel.targetId)
+          const target = content.characters.find(c => c.id === rel.characterId)
           if (target) {
             sections.push(`- ${target.name}との関係: ${rel.description}`)
           }

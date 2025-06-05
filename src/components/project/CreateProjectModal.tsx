@@ -225,8 +225,10 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
                     <li>キャラクター間の関係性</li>
                   </ul>
                   
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    使用するAIモデル
+                  </label>
                   <Select
-                    label="使用するAIモデル"
                     value={selectedModel}
                     onChange={(e) => setSelectedModel(e.target.value)}
                     options={[
