@@ -1110,7 +1110,7 @@ function CharacterOverviewTab({ characters, chapters }: {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div>
                     <dt className="text-gray-500">始まり:</dt>
-                    <dd className="mt-1">{selectedCharacter.arc.beginning}</dd>
+                    <dd className="mt-1">{selectedCharacter.arc.start}</dd>
                   </div>
                   <div>
                     <dt className="text-gray-500">旅路:</dt>
