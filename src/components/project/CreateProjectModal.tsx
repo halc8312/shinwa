@@ -177,7 +177,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
                 placeholder={useAIGeneration 
                   ? "物語の概要を詳しく入力してください。AIがこの情報を基に世界観やキャラクターを生成します。"
                   : "プロジェクトの概要を入力..."}
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-base shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-base text-black shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 rows={useAIGeneration ? 5 : 3}
               />
             </div>
