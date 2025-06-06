@@ -1,11 +1,13 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 
 export default function Home() {
   const router = useRouter()
+  const { data: session } = useSession()
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950">
@@ -61,11 +63,26 @@ export default function Home() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/projects">
-            <Button size="lg" className="w-full sm:w-auto">
-              プロジェクトを開始
-            </Button>
-          </Link>
+          {session ? (
+            <Link href="/projects">
+              <Button size="lg" className="w-full sm:w-auto">
+                プロジェクトを開始
+              </Button>
+            </Link>
+          ) : (
+            <>
+              <Link href="/auth/signin">
+                <Button size="lg" className="w-full sm:w-auto">
+                  ログイン
+                </Button>
+              </Link>
+              <Link href="/auth/signup">
+                <Button size="lg" variant="secondary" className="w-full sm:w-auto">
+                  新規登録
+                </Button>
+              </Link>
+            </>
+          )}
           <a 
             href="https://github.com/yourusername/shinwa" 
             target="_blank" 
