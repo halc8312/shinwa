@@ -143,7 +143,7 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
     >
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             AIプロバイダー
           </label>
           <Select
@@ -176,9 +176,9 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Temperature
-              <span className="ml-2 text-xs text-gray-500">
+              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                 ({temperature})
               </span>
             </label>
@@ -191,7 +191,7 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
               onChange={(e) => setTemperature(parseFloat(e.target.value))}
               className="w-full"
             />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
               <span>確定的</span>
               <span>創造的</span>
             </div>
@@ -207,11 +207,11 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
           />
         </div>
 
-        <div className="bg-blue-50 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-blue-900 mb-2">
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">
             APIキーの取得方法
           </h4>
-          <ul className="text-sm text-blue-700 space-y-1">
+          <ul className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
             {provider === 'openai' ? (
               <>
                 <li>1. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">OpenAI Platform</a> にアクセス</li>
