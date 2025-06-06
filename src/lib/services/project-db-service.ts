@@ -147,7 +147,23 @@ export class ProjectDBService {
         writingRules: dbProject.settings.writingRules,
         worldSettings: dbProject.settings.worldSettings,
         aiSettings: dbProject.settings.aiSettings
-      } : undefined
+      } : {
+        writingRules: defaultWritingRules,
+        worldSettings: {
+          name: dbProject.name + 'の世界',
+          description: '',
+          era: '現代',
+          geography: [],
+          cultures: []
+        },
+        aiSettings: {
+          model: 'gpt-4o',
+          temperature: 0.7,
+          maxTokens: 4000,
+          systemPrompt: '',
+          customInstructions: []
+        }
+      }
     }
   }
 }
