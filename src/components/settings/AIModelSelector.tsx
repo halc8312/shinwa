@@ -91,7 +91,7 @@ export default function AIModelSelector({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           AIモデル
         </label>
         {!showCustomInput ? (
@@ -137,30 +137,30 @@ export default function AIModelSelector({
       </div>
 
       {selectedModel && !showCustomInput && (
-        <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-          <h4 className="font-medium text-sm text-gray-900">
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
+          <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">
             {selectedModel.name}
           </h4>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             {selectedModel.description}
           </p>
           <div className="flex flex-wrap gap-2 mt-2">
             {selectedModel.capabilities.map((cap) => (
               <span
                 key={cap}
-                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700"
+                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
               >
                 {cap}
               </span>
             ))}
           </div>
           {selectedModel.contextWindow > 0 && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               コンテキストウィンドウ: {selectedModel.contextWindow.toLocaleString()} トークン
             </p>
           )}
           {'pricing' in selectedModel && selectedModel.pricing && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               価格: ${selectedModel.pricing.input}/1M 入力 | ${selectedModel.pricing.output}/1M 出力
             </p>
           )}
