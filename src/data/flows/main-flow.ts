@@ -30,6 +30,15 @@ export const mainWritingFlow: Flow = {
       input: ['worldSettings', 'characters', 'concepts'],
       output: ['settings'],
       action: '物語世界、キャラクター、独自概念の設定を読み込み',
+      nextSteps: ['load-previous-chapter']
+    },
+    {
+      id: 'load-previous-chapter',
+      name: '前章データの読み込み',
+      type: 'read',
+      input: ['previousChapter', 'previousState'],
+      output: ['previousChapter', 'previousState'],
+      action: '前章の内容と状態を読み込み（第2章以降の場合）',
       nextSteps: ['analyze-previous']
     },
     {
@@ -61,7 +70,7 @@ export const mainWritingFlow: Flow = {
       id: 'write-chapter',
       name: '本編執筆',
       type: 'write',
-      input: ['chapterPlan', 'rules', 'settings'],
+      input: ['chapterPlan', 'rules', 'settings', 'previousChapter', 'previousState'],
       output: ['chapterContent'],
       action: '計画に基づいて章の本文を執筆',
       nextSteps: ['validate-consistency']

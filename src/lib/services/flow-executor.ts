@@ -75,10 +75,26 @@ export class NovelFlowExecutor implements FlowExecutor {
           result.characters = characters
           break
         case 'previousChapter':
-          result.previousChapter = await this.loadPreviousChapter(context.chapterNumber - 1)
+          // Only load if chapter number > 1
+          if (context.chapterNumber && context.chapterNumber > 1) {
+            console.log(`Loading previous chapter for chapter ${context.chapterNumber}`)
+            result.previousChapter = await this.loadPreviousChapter(context.chapterNumber - 1)
+            console.log(`Loaded previous chapter:`, result.previousChapter ? `Chapter ${result.previousChapter.number}` : 'null')
+          } else {
+            console.log(`Skipping previous chapter load for chapter ${context.chapterNumber || 1}`)
+            result.previousChapter = null
+          }
           break
         case 'previousState':
-          result.previousState = await this.loadChapterState(context.chapterNumber - 1)
+          // Only load if chapter number > 1
+          if (context.chapterNumber && context.chapterNumber > 1) {
+            console.log(`Loading previous state for chapter ${context.chapterNumber}`)
+            result.previousState = await this.loadChapterState(context.chapterNumber - 1)
+            console.log(`Loaded previous state:`, result.previousState)
+          } else {
+            console.log(`Skipping previous state load for chapter ${context.chapterNumber || 1}`)
+            result.previousState = null
+          }
           break
       }
     }
@@ -270,13 +286,16 @@ export class NovelFlowExecutor implements FlowExecutor {
       
 第${previousChapter}章の内容と状態を分析し、第${currentChapter}章への継続性を確保してください。
 
+**重要: 第${currentChapter}章は第${previousChapter}章の続きです。新しい第1章ではありません。**
+
 以下の点に注意して分析してください：
 - キャラクターの心理状態と位置
 - 未解決の出来事や伏線
 - 時間と場所の流れ
 - 物語の勢いとペース
 - ${genre}のジャンル特性を踏まえた展開
-- 第${previousChapter}章の終わりの状況から、第${currentChapter}章をどのように始めるべきか`
+- 第${previousChapter}章の終わりの状況から、第${currentChapter}章をどのように始めるべきか
+- 物語は継続しており、第${currentChapter}章として適切な内容を計画すること`
     }
     
     if (step.id === 'plan-chapter') {
@@ -292,8 +311,10 @@ export class NovelFlowExecutor implements FlowExecutor {
 【現在計画する章】
 第${chapterNumber}章
 
+**重要: これは第${chapterNumber}章の計画です。${chapterNumber > 1 ? '第1章ではありません。前章からの継続として計画してください。' : ''}**
+
 与えられた情報を基に、第${chapterNumber}章の詳細な計画を立ててください。
-${chapterNumber > 1 ? '前章からの流れを踏まえて、物語を自然に展開させてください。' : '物語の導入として魅力的な始まりを計画してください。'}
+${chapterNumber > 1 ? '前章からの流れを踏まえて、物語を自然に展開させてください。第1章の内容を繰り返さないでください。' : '物語の導入として魅力的な始まりを計画してください。'}
 
 必ず以下の形式のJSONを出力してください：
 {
@@ -337,7 +358,10 @@ ${genre}小説として適切な展開を心がけてください。`
     }
 
     if (context.previousChapter) {
+      console.log(`Building analysis prompt: Found previous chapter ${context.previousChapter.number} for current chapter ${context.chapterNumber}`)
       parts.push(`第${(context.chapterNumber || 2) - 1}章の内容:\n${context.previousChapter.content}`)
+    } else {
+      console.log(`Building analysis prompt: No previous chapter found for chapter ${context.chapterNumber}`)
     }
 
     if (context.previousState) {
@@ -386,7 +410,7 @@ ${genre}小説として適切な展開を心がけてください。`
 ${rulesPrompt}
 
 与えられた章の計画に基づいて、${genre}らしい魅力的で読者を引き込む文章を書いてください。
-前章の内容を踏まえて物語を継続し、新しい展開を加えてください。
+${chapterNumber > 1 ? '重要: これは第' + chapterNumber + '章です。前章の内容を踏まえて物語を継続し、新しい展開を加えてください。第1章の内容を繰り返さないでください。' : '物語の始まりとして、読者を引き込む導入を書いてください。'}
 キャラクターの感情や行動を通じて物語を展開し、読者が場面を鮮明にイメージできるような描写を心がけてください。
 
 重要：これは第${chapterNumber}章です。前章とは異なる新しい内容を執筆してください。
@@ -439,7 +463,8 @@ ${rulesPrompt}
       parts.push('\n上記の章の裏側で起きている重要な出来事を生成してください。')
     } else {
       // 通常の章執筆用プロンプト
-      parts.push(`【現在執筆する章】\n第${context.chapterNumber || 1}章`)
+      const currentChapter = context.chapterNumber || 1
+      parts.push(`【重要: 現在執筆する章】\n第${currentChapter}章を執筆してください。\n\n**これは第${currentChapter}章です。${currentChapter > 1 ? '第1章の内容を繰り返さず、物語を継続してください。' : ''}**`)
       
       if (context.projectInfo) {
         parts.push(`プロジェクト情報:\nタイトル: ${context.projectInfo.name}\n説明: ${context.projectInfo.description}`)
@@ -451,8 +476,12 @@ ${rulesPrompt}
 
       // 前章の内容と状態を追加（第2章以降の場合）
       if (context.chapterNumber > 1) {
+        console.log(`Building writing prompt for chapter ${context.chapterNumber}, checking for previous chapter content`)
         if (context.previousChapter) {
+          console.log(`Found previous chapter ${context.previousChapter.number} content for writing prompt`)
           parts.push(`前章（第${context.chapterNumber - 1}章）の内容:\n${context.previousChapter.content.substring(0, 1000)}...`)
+        } else {
+          console.log(`WARNING: No previous chapter content found for chapter ${context.chapterNumber}`)
         }
         
         if (context.previousState) {
@@ -463,6 +492,8 @@ ${rulesPrompt}
         if (context.context) {
           parts.push(`前章からの分析結果:\n${JSON.stringify(context.context, null, 2)}`)
         }
+      } else {
+        console.log(`Building writing prompt for chapter 1, no previous chapter needed`)
       }
 
       if (context.chapterPlan) {
@@ -502,6 +533,10 @@ ${context.chapterOutline.foreshadowingToReveal?.map((hint: any) => `- ${hint}`).
       }
 
       parts.push(`上記の情報を基に、第${context.chapterNumber || 1}章を執筆してください。前章とは異なる新しい展開で物語を進めてください。`)
+      
+      // 最後に再度章番号を強調
+      const chapterNum = context.chapterNumber || 1
+      parts.push(`【最終確認】\nこれから執筆するのは第${chapterNum}章です。${chapterNum > 1 ? '第1章ではありません。前章の続きとして執筆してください。' : '物語の始まりとして執筆してください。'}`)
     }
 
     return parts.join('\n\n')
@@ -846,17 +881,21 @@ ${JSON.stringify(context.previousChapters, null, 2)}
     if (stored) {
       try {
         const chapters = JSON.parse(stored)
-        console.log(`Found ${chapters.length} chapters, looking for chapter ${chapterNumber}`)
-        const previousChapter = chapters.find((ch: any) => ch.number === chapterNumber)
+        console.log(`Found ${chapters.length} chapters in storage:`, chapters.map((ch: any) => ({ number: ch.number, title: ch.title })))
+        console.log(`Looking for chapter number ${chapterNumber} (type: ${typeof chapterNumber})`)
+        // Ensure type consistency - convert both to numbers for comparison
+        const previousChapter = chapters.find((ch: any) => Number(ch.number) === Number(chapterNumber))
         if (previousChapter) {
           console.log(`Found previous chapter ${chapterNumber}, title: ${previousChapter.title}`)
+          console.log(`Chapter content preview:`, previousChapter.content.substring(0, 100) + '...')
           return {
             ...previousChapter,
             createdAt: new Date(previousChapter.createdAt),
             updatedAt: new Date(previousChapter.updatedAt)
           }
         } else {
-          console.log(`Previous chapter ${chapterNumber} not found`)
+          console.log(`Previous chapter ${chapterNumber} not found in stored chapters`)
+          console.log(`Available chapter numbers:`, chapters.map((ch: any) => ch.number))
         }
       } catch (error) {
         console.error('Failed to load previous chapter:', error)
