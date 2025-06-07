@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Button from '@/components/ui/Button'
+import Header from '@/components/layout/Header'
 
 export default function AccountPage() {
   const { data: session, status } = useSession()
@@ -34,6 +35,7 @@ export default function AccountPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Header />
       <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -109,14 +111,6 @@ export default function AccountPage() {
           </div>
         </div>
 
-        <div className="mt-4">
-          <Button
-            variant="secondary"
-            onClick={() => router.push('/projects')}
-          >
-            プロジェクト一覧に戻る
-          </Button>
-        </div>
       </div>
     </div>
   )

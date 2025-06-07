@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button'
 import Link from 'next/link'
 import AISettings, { AISettingsData } from '@/components/settings/AISettings'
 import { useAppStore } from '@/lib/store'
+import Header from '@/components/layout/Header'
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
@@ -64,6 +65,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Header />
       <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -71,11 +73,6 @@ export default function ProjectsPage() {
               プロジェクト一覧
             </h1>
             <div className="flex gap-2 sm:gap-3">
-              <Link href="/">
-                <Button variant="secondary" size="sm" className="sm:text-base">
-                  ホームに戻る
-                </Button>
-              </Link>
               <Button
                 variant="secondary"
                 onClick={() => setShowAISettings(true)}
