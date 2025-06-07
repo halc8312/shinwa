@@ -27,6 +27,11 @@ export default function Header() {
                     プロジェクト
                   </Button>
                 </Link>
+                <Link href="/pricing">
+                  <Button variant="ghost" size="sm">
+                    料金プラン
+                  </Button>
+                </Link>
                 <Link href="/account">
                   <Button variant="ghost" size="sm">
                     アカウント

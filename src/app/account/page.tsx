@@ -2,23 +2,57 @@
 
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Button from '@/components/ui/Button'
 import Header from '@/components/layout/Header'
+import { PLANS } from '@/lib/stripe'
 
 export default function AccountPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const [subscription, setSubscription] = useState<any>(null)
+  const [loadingPortal, setLoadingPortal] = useState(false)
 
   useEffect(() => {
     if (status === 'loading') return
     if (!session) {
       router.push('/auth/signin')
+    } else {
+      fetchSubscription()
     }
   }, [session, status, router])
 
+  const fetchSubscription = async () => {
+    try {
+      const response = await fetch('/api/subscription')
+      if (response.ok) {
+        const data = await response.json()
+        setSubscription(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription:', error)
+    }
+  }
+
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/' })
+  }
+
+  const handleManageSubscription = async () => {
+    setLoadingPortal(true)
+    try {
+      const response = await fetch('/api/stripe/portal', {
+        method: 'POST',
+      })
+      const data = await response.json()
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch (error) {
+      console.error('Failed to create portal session:', error)
+    } finally {
+      setLoadingPortal(false)
+    }
   }
 
   if (status === 'loading') {
@@ -81,6 +115,56 @@ export default function AccountPage() {
                 />
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="mt-8 bg-white dark:bg-gray-800 shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+              サブスクリプション
+            </h2>
+          </div>
+
+          <div className="px-6 py-4">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  現在のプラン
+                </label>
+                <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+                  {subscription?.plan ? PLANS[subscription.plan as keyof typeof PLANS]?.name : '無料プラン'}
+                </p>
+              </div>
+
+              {subscription?.stripeCurrentPeriodEnd && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    次回更新日
+                  </label>
+                  <p className="mt-1 text-gray-900 dark:text-white">
+                    {new Date(subscription.stripeCurrentPeriodEnd).toLocaleDateString('ja-JP')}
+                  </p>
+                </div>
+              )}
+
+              <div className="pt-4">
+                {subscription?.stripeCustomerId ? (
+                  <Button
+                    onClick={handleManageSubscription}
+                    disabled={loadingPortal}
+                  >
+                    {loadingPortal ? '処理中...' : 'サブスクリプションを管理'}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => router.push('/pricing')}
+                    variant="primary"
+                  >
+                    プランをアップグレード
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
