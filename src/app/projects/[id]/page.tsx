@@ -14,11 +14,13 @@ import { NovelFlowExecutor } from '@/lib/services/flow-executor'
 import { mainWritingFlow } from '@/data/flows/main-flow'
 import { aiManager } from '@/lib/ai/manager'
 import { formatDate, countCharacters } from '@/lib/utils'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 export default function ProjectDashboard() {
   const params = useParams()
   const router = useRouter()
   const projectId = params.id as string
+  const { userId, isAuthenticated } = useCurrentUser()
 
   const [project, setProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -31,6 +33,13 @@ export default function ProjectDashboard() {
   const [showChapterPreview, setShowChapterPreview] = useState(false)
   const [chapters, setChapters] = useState<Chapter[]>([])
   const [chapterStructure, setChapterStructure] = useState<any>(null)
+  const [aiUsageStats, setAiUsageStats] = useState<{
+    isUnlimited: boolean;
+    remaining: number;
+    used: number;
+    limit: number;
+  } | null>(null)
+  const [showUsageWarning, setShowUsageWarning] = useState(false)
 
   const { setCurrentProject, setCurrentProvider, setApiKey } = useAppStore()
 
@@ -47,6 +56,13 @@ export default function ProjectDashboard() {
       setChapters([])
     }
   }, [projectId])
+
+  useEffect(() => {
+    // AI使用状況を取得
+    if (isAuthenticated && userId) {
+      loadAIUsageStats()
+    }
+  }, [isAuthenticated, userId])
 
   const loadProject = async () => {
     setIsLoading(true)
@@ -111,6 +127,18 @@ export default function ProjectDashboard() {
     }
   }
 
+  const loadAIUsageStats = async () => {
+    try {
+      const response = await fetch('/api/ai-usage')
+      if (response.ok) {
+        const stats = await response.json()
+        setAiUsageStats(stats)
+      }
+    } catch (error) {
+      console.error('Failed to load AI usage stats:', error)
+    }
+  }
+
   const handleAISettingsSave = async (settings: AISettingsData) => {
     // AI設定の保存とプロバイダーの登録
     aiManager.registerProvider(settings.provider, {
@@ -141,6 +169,33 @@ export default function ProjectDashboard() {
     if (!project?.settings.aiSettings) {
       setShowAISettings(true)
       return
+    }
+
+    // AI使用制限をチェック
+    if (userId) {
+      try {
+        const checkResponse = await fetch('/api/ai-usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'check' })
+        })
+        
+        if (checkResponse.ok) {
+          const checkResult = await checkResponse.json()
+          if (!checkResult.canGenerate) {
+            setShowUsageWarning(true)
+            setExecutionLog([`無料プランの使用制限に達しました。今月は残り0回です。`])
+            return
+          }
+          
+          // 使用可能回数を表示
+          if (!checkResult.isUnlimited) {
+            setExecutionLog([`AI生成を開始します... (今月の残り回数: ${checkResult.remaining}回)`])
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check AI usage:', error)
+      }
     }
 
     // LocalStorageから最新の章データを取得
@@ -229,6 +284,24 @@ export default function ProjectDashboard() {
         setPendingChapter(newChapter)
         setShowChapterPreview(true)
         setExecutionLog(prev => [...prev, '執筆が完了しました！内容を確認してください。'])
+        
+        // AI使用を記録
+        if (userId) {
+          try {
+            const recordResponse = await fetch('/api/ai-usage', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'record' })
+            })
+            
+            if (recordResponse.ok) {
+              const { stats } = await recordResponse.json()
+              setAiUsageStats(stats)
+            }
+          } catch (error) {
+            console.error('Failed to record AI usage:', error)
+          }
+        }
       }
     } catch (error: any) {
       setExecutionLog(prev => [...prev, `エラー: ${error.message}`])
@@ -301,9 +374,11 @@ export default function ProjectDashboard() {
                 </Button>
                 <Button
                   onClick={handleExecuteFlow}
-                  disabled={isExecuting}
+                  disabled={isExecuting || (aiUsageStats && !aiUsageStats.isUnlimited && aiUsageStats.remaining === 0)}
                 >
-                  {isExecuting ? '執筆中...' : `第${chapters.length > 0 ? Math.max(...chapters.map(ch => ch.number)) + 1 : 1}章を執筆`}
+                  {isExecuting ? '執筆中...' : 
+                   aiUsageStats && !aiUsageStats.isUnlimited && aiUsageStats.remaining === 0 ? '使用制限に達しました' :
+                   `第${chapters.length > 0 ? Math.max(...chapters.map(ch => ch.number)) + 1 : 1}章を執筆${aiUsageStats && !aiUsageStats.isUnlimited ? ` (残り${aiUsageStats.remaining}回)` : ''}`}
                 </Button>
                 {chapterStructure && (
                   <Link href={`/projects/${projectId}/setup-chapters`}>
@@ -449,6 +524,53 @@ export default function ProjectDashboard() {
                 </div>
               </dl>
             </div>
+
+            {/* AI使用状況 */}
+            {aiUsageStats && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold mb-4">AI使用状況</h3>
+                {aiUsageStats.isUnlimited ? (
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      プラン: <span className="font-medium text-green-600">有料プラン</span>
+                    </p>
+                    <p className="text-2xl font-bold text-green-600">無制限</p>
+                    <p className="text-xs text-gray-500 mt-1">AI生成に制限はありません</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      プラン: <span className="font-medium">無料プラン</span>
+                    </p>
+                    <div className="mb-3">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>今月の使用回数</span>
+                        <span className="font-medium">{aiUsageStats.used} / {aiUsageStats.limit}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all"
+                          style={{ width: `${(aiUsageStats.used / aiUsageStats.limit) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      残り: <span className={`font-medium ${aiUsageStats.remaining === 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {aiUsageStats.remaining}回
+                      </span>
+                    </p>
+                    {aiUsageStats.remaining === 0 && (
+                      <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                        <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                          今月の無料枠を使い切りました。
+                          継続して利用するには有料プランへのアップグレードをご検討ください。
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* プロジェクトメタ情報 */}
             {projectMeta && (
@@ -676,6 +798,45 @@ export default function ProjectDashboard() {
           onClose={() => setShowAdvancedAISettings(false)}
           projectId={projectId}
         />
+
+        {/* 使用制限警告モーダル */}
+        {showUsageWarning && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full m-4 p-6">
+              <h2 className="text-xl font-bold mb-4 text-red-600">
+                使用制限に達しました
+              </h2>
+              <p className="text-gray-700 dark:text-gray-300 mb-6">
+                無料プランでは月間10回までAI章生成が可能です。
+                今月の制限に達しました。
+              </p>
+              <div className="space-y-4 mb-6">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h3 className="font-semibold mb-2">有料プランの特典</h3>
+                  <ul className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
+                    <li>✓ 無制限のAI章生成</li>
+                    <li>✓ 高度な執筆機能</li>
+                    <li>✓ 優先サポート</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowUsageWarning(false)}
+                  className="flex-1"
+                >
+                  閉じる
+                </Button>
+                <Link href="/account" className="flex-1">
+                  <Button className="w-full">
+                    プランをアップグレード
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
