@@ -1,57 +1,43 @@
-name: Claude PR Assistant
+# 既存部分はそのまま。変更・追加はコメント付きで示します
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+    with:
+      fetch-depth: 1
 
-on:
-  issue_comment:
-    types: [created]
-  pull_request_review_comment:
-    types: [created]
-  issues:
-    types: [opened, assigned]
-  pull_request_review:
-    types: [submitted]
+  # 🔸 追加＆変更: access_token と expires_at の両方を出力
+  - name: Refresh Claude token
+    id: auth
+    env:
+      REFRESH_TOKEN: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
+    run: |
+      sudo apt-get -y update && sudo apt-get -y install jq
+      JSON=$(curl -sS -X POST https://api.anthropic.com/oauth/token \
+        -d grant_type=refresh_token \
+        -d refresh_token=${REFRESH_TOKEN} \
+        -d client_id=gh-action \
+        -d client_secret=unused)
 
-jobs:
-  claude-code-action:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-      id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
+      # --- access_token ---
+      echo "::add-mask::$(echo "$JSON" | jq -r .access_token)"
+      echo "token=$(echo "$JSON" | jq -r .access_token)" >> $GITHUB_OUTPUT
 
-      # ① ────── 追加: refresh_token から新しい access_token を取得
-      - name: Refresh Claude token
-        id: auth
-        env:
-          REFRESH_TOKEN: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
-        run: |
-          sudo apt-get -y update && sudo apt-get -y install jq
-          JSON=$(curl -sS -X POST https://api.anthropic.com/oauth/token \
-            -d grant_type=refresh_token \
-            -d refresh_token=${REFRESH_TOKEN} \
-            -d client_id=gh-action \
-            -d client_secret=unused)
-          echo "::add-mask::$(echo "$JSON" | jq -r .access_token)"
-          echo "token=$(echo "$JSON" | jq -r .access_token)" >> "$GITHUB_OUTPUT"
+      # --- expires_at ---
+      #   レスポンスに expires_at が無い場合は expires_in から算出
+      exp=$(echo "$JSON" | jq -r '.expires_at // empty')
+      if [ -z "$exp" ]; then
+        exp_in=$(echo "$JSON" | jq -r '.expires_in // 1800')   # 秒
+        exp=$(($(date +%s) + exp_in - 60))                     # 60秒バッファ
+      fi
+      echo "expires=$exp" >> $GITHUB_OUTPUT
 
-      - name: Run Claude PR Action
-        uses: grll/claude-code-action@beta   # fork/公式どちらでも可
-        with:
-          use_oauth: true
-          # ② ────── 変更: 生成した token をそのまま渡す
-          claude_access_token: ${{ steps.auth.outputs.token }}
-          # ここから下は refresh_token だけ残す
-          claude_refresh_token: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
-          # claude_expires_at は不要なので削除
-          model: "claude-opus-4-20250514"
-          timeout_minutes: "60"
+  - name: Run Claude PR Action
+    uses: grll/claude-code-action@beta
+    with:
+      use_oauth: true
+      claude_access_token: ${{ steps.auth.outputs.token }}
+      claude_refresh_token: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
+      # 🔸 追加: 動的に算出した expires_at を渡す
+      claude_expires_at: ${{ steps.auth.outputs.expires }}
+      model: "claude-opus-4-20250514"
+      timeout_minutes: "60"
