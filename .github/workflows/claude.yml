@@ -29,12 +29,29 @@ jobs:
         with:
           fetch-depth: 1
 
+      # ① ────── 追加: refresh_token から新しい access_token を取得
+      - name: Refresh Claude token
+        id: auth
+        env:
+          REFRESH_TOKEN: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
+        run: |
+          sudo apt-get -y update && sudo apt-get -y install jq
+          JSON=$(curl -sS -X POST https://api.anthropic.com/oauth/token \
+            -d grant_type=refresh_token \
+            -d refresh_token=${REFRESH_TOKEN} \
+            -d client_id=gh-action \
+            -d client_secret=unused)
+          echo "::add-mask::$(echo "$JSON" | jq -r .access_token)"
+          echo "token=$(echo "$JSON" | jq -r .access_token)" >> "$GITHUB_OUTPUT"
+
       - name: Run Claude PR Action
-        uses: grll/claude-code-action@beta
+        uses: grll/claude-code-action@beta   # fork/公式どちらでも可
         with:
           use_oauth: true
-          claude_access_token: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
+          # ② ────── 変更: 生成した token をそのまま渡す
+          claude_access_token: ${{ steps.auth.outputs.token }}
+          # ここから下は refresh_token だけ残す
           claude_refresh_token: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
-          claude_expires_at: ${{ secrets.CLAUDE_EXPIRES_AT }}
+          # claude_expires_at は不要なので削除
           model: "claude-opus-4-20250514"
           timeout_minutes: "60"
