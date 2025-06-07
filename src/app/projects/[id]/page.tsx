@@ -374,7 +374,7 @@ export default function ProjectDashboard() {
                 </Button>
                 <Button
                   onClick={handleExecuteFlow}
-                  disabled={isExecuting || (aiUsageStats && !aiUsageStats.isUnlimited && aiUsageStats.remaining === 0)}
+                  disabled={isExecuting || (!!aiUsageStats && !aiUsageStats.isUnlimited && aiUsageStats.remaining === 0)}
                 >
                   {isExecuting ? '執筆中...' : 
                    aiUsageStats && !aiUsageStats.isUnlimited && aiUsageStats.remaining === 0 ? '使用制限に達しました' :
