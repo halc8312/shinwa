@@ -82,8 +82,8 @@ export class ChapterStructureService {
       }
     } catch (error) {
       console.error('Failed to generate chapter structure:', error)
-      // フォールバック：基本的な章立てを生成
-      return this.createFallbackStructure(params.novelType, params.structureType)
+      // フォールバック：基本的な章立てを生成（プロジェクトデータを含む）
+      return this.createFallbackStructure(params.novelType, params.structureType, projectData)
     }
   }
 
@@ -361,6 +361,11 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
     const acts: Act[] = []
     let currentChapter = 1
     
+    // テンプレートが存在しない場合は空の幕構成を返す
+    if (!template || !template.actTemplates) {
+      return acts
+    }
+    
     template.actTemplates.forEach((actTemplate: any, index: number) => {
       const chaptersInAct = Math.round((actTemplate.percentageOfStory / 100) * totalChapters)
       const endChapter = Math.min(currentChapter + chaptersInAct - 1, totalChapters)
@@ -451,7 +456,11 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
         title: '',
         purpose,
         keyEvents,
-        tensionLevel: Math.max(1, Math.min(10, tensionLevel))
+        tensionLevel: Math.max(1, Math.min(10, tensionLevel)),
+        // デフォルトの空配列を設定
+        charactersInvolved: [],
+        foreshadowingToPlant: [],
+        foreshadowingToReveal: []
       }
     })
   }
@@ -498,7 +507,8 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
    */
   private createFallbackStructure(
     novelType: NovelTypeConfig,
-    structureType: StoryStructure['type']
+    structureType: StoryStructure['type'],
+    projectData?: { writingRules?: WritingRules, worldSettings?: WorldSettings, characters?: Character[] }
   ): ChapterStructure {
     const chapterCount = novelType.chapterCountRange.min
     const template = structureType === 'custom' 
@@ -562,7 +572,14 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
         title: '',
         purpose,
         keyEvents,
-        tensionLevel: Math.max(1, Math.min(10, tensionLevel))
+        tensionLevel: Math.max(1, Math.min(10, tensionLevel)),
+        // プロジェクトデータが利用可能な場合は、キャラクター情報を追加
+        charactersInvolved: projectData?.characters ? 
+          projectData.characters.slice(0, Math.min(3, projectData.characters.length)).map(c => c.id) : [],
+        location: projectData?.worldSettings?.name || '',
+        time: '',
+        foreshadowingToPlant: [],
+        foreshadowingToReveal: []
       }
     })
     
