@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Header } from '@/components/layout/Header';
-import { Button } from '@/components/ui/Button';
+import Header from '@/components/layout/Header';
+import Button from '@/components/ui/Button';
 import { PLANS, type PlanType } from '@/lib/stripe';
 
 export default function PricingPage() {

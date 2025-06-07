@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-05-28.basil',
   typescript: true,
 });
 
@@ -54,11 +54,11 @@ export const getStripePriceId = (plan: PlanType): string | null => {
   return PLANS[plan].priceId || null;
 };
 
-export const getPlanByPriceId = (priceId: string): PlanType | null => {
+export const getPlanByPriceId = (priceId: string): PlanType => {
   for (const [key, plan] of Object.entries(PLANS)) {
     if (plan.priceId === priceId) {
       return key as PlanType;
     }
   }
-  return null;
+  return 'free';
 };

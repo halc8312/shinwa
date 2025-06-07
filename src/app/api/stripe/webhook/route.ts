@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { SubscriptionService } from '@/lib/services/subscription-service';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import type Stripe from 'stripe';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
             {
               stripeSubscriptionId: subscription.id,
               stripePriceId: subscription.items.data[0].price.id,
-              stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+              stripeCurrentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
               status: subscription.status,
             }
           );
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
             {
               stripeSubscriptionId: subscription.id,
               stripePriceId: subscription.items.data[0].price.id,
-              stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+              stripeCurrentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
               status: subscription.status,
             }
           );
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
             customerId,
             {
               status: 'canceled',
-              stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+              stripeCurrentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
             }
           );
         }
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = invoice.subscription as string;
+        const subscriptionId = (invoice as any).subscription as string;
 
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
               customerId,
               {
                 status: 'active',
-                stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+                stripeCurrentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
               }
             );
           }
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = invoice.subscription as string;
+        const subscriptionId = (invoice as any).subscription as string;
 
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -152,10 +152,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Stripe Webhookは生のボディが必要なため、bodyParserを無効化
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};

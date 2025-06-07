@@ -1,5 +1,5 @@
 import { stripe, getPlanByPriceId, type PlanType } from '@/lib/stripe';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import type { User } from '@prisma/client';
 
 export class SubscriptionService {
@@ -14,7 +14,7 @@ export class SubscriptionService {
     }
   ) {
     const plan = subscriptionData.stripePriceId
-      ? getPlanByPriceId(subscriptionData.stripePriceId) || 'free'
+      ? getPlanByPriceId(subscriptionData.stripePriceId)
       : 'free';
 
     return await prisma.subscription.upsert({
@@ -86,10 +86,11 @@ export class SubscriptionService {
   }> {
     const subscription = await this.getSubscription(userId);
 
-    const hasActiveSubscription =
+    const hasActiveSubscription = Boolean(
       subscription?.status === 'active' &&
       subscription?.stripeCurrentPeriodEnd &&
-      subscription.stripeCurrentPeriodEnd > new Date();
+      subscription.stripeCurrentPeriodEnd > new Date()
+    );
 
     const plan = (subscription?.plan || 'free') as PlanType;
 
