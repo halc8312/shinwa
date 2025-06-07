@@ -1,8 +1,28 @@
 import Stripe from 'stripe';
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-05-28.basil',
-  typescript: true,
+// Stripeインスタンスを遅延初期化
+let stripeInstance: Stripe | null = null;
+
+export const getStripe = () => {
+  if (!stripeInstance && process.env.STRIPE_SECRET_KEY) {
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-05-28.basil',
+      typescript: true,
+    });
+  }
+  return stripeInstance;
+};
+
+// 互換性のためのエクスポート（エラーを防ぐためにダミーオブジェクトを返す）
+export const stripe = new Proxy({} as Stripe, {
+  get(target, prop) {
+    const instance = getStripe();
+    if (!instance) {
+      console.warn('Stripe is not initialized. Please set STRIPE_SECRET_KEY environment variable.');
+      return () => Promise.reject(new Error('Stripe not initialized'));
+    }
+    return instance[prop as keyof Stripe];
+  },
 });
 
 export const PLANS = {

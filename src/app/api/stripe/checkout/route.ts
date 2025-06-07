@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth-options';
-import { stripe, PLANS, type PlanType } from '@/lib/stripe';
+import { getStripe, PLANS, type PlanType } from '@/lib/stripe';
 import { SubscriptionService } from '@/lib/services/subscription-service';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
+    // Stripeの初期化チェック
+    const stripe = getStripe();
+    if (!stripe) {
+      return NextResponse.json(
+        { error: 'Stripe not configured' },
+        { status: 500 }
+      );
+    }
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {

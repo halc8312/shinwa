@@ -1,4 +1,4 @@
-import { stripe, getPlanByPriceId, type PlanType } from '@/lib/stripe';
+import { getStripe, getPlanByPriceId, type PlanType } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import type { User } from '@prisma/client';
 
@@ -48,6 +48,11 @@ export class SubscriptionService {
     }
 
     // Stripe側でサブスクリプションをキャンセル
+    const stripe = getStripe();
+    if (!stripe) {
+      throw new Error('Stripe not configured');
+    }
+    
     const canceledSubscription = await stripe.subscriptions.update(
       subscription.stripeSubscriptionId,
       {
@@ -73,6 +78,11 @@ export class SubscriptionService {
       throw new Error('No customer found');
     }
 
+    const stripe = getStripe();
+    if (!stripe) {
+      throw new Error('Stripe not configured');
+    }
+    
     return await stripe.billingPortal.sessions.create({
       customer: subscription.stripeCustomerId,
       return_url: `${process.env.NEXTAUTH_URL}/account`,
