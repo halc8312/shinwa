@@ -40,7 +40,7 @@ jobs:
 
     # 3. Claude Code Action を実行（OAuth フローは Action + CLI に任せる）
     - name: Run Claude Code Action
-      uses: grll/claude-code-action@v2   # v2 以上は最新 CLI 同梱
+      uses: grll/claude-code-action@beta
       with:
         use_oauth: true                      # OAuth モード
         claude_refresh_token: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
