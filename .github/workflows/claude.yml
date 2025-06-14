@@ -1,4 +1,4 @@
-name: Claude Code
+name: Claude PR Assistant
 
 on:
   issue_comment:
@@ -11,29 +11,33 @@ on:
     types: [submitted]
 
 jobs:
-  claude:
+  claude-code-action:
+    # @claudeが含まれるコメントの時のみ実行
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
+    
     runs-on: ubuntu-latest
+    
     permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-      id-token: write
+      contents: write      # コードの読み書き
+      pull-requests: write # PRへのコメント
+      issues: write        # Issueへのコメント
+      id-token: write      # OIDC認証用
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      - name: Run Claude Code
-        id: claude
-        uses: anthropics/claude-code-action@beta
+      
+      - name: Run Claude PR Action
+        uses: grll/claude-code-action@beta
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          allowed_tools: "Bash(bun install),Bash(bun test:*),Bash(bun run format),Bash(bun typecheck)"
-          custom_instructions: "You have also been granted tools for editing files and running bun commands (install, run, test, typecheck) for testing your changes: bun install, bun test, bun run format, bun typecheck."
-          model: "claude-opus-4-20250514"
+          use_oauth: true
+          claude_access_token: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
+          claude_refresh_token: ${{ secrets.CLAUDE_REFRESH_TOKEN }}
+          claude_expires_at: ${{ secrets.CLAUDE_EXPIRES_AT }}
+          timeout_minutes: "60"
