@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 import Button from '@/components/ui/Button';
 import { PLANS, type PlanType } from '@/lib/stripe';
 
@@ -49,9 +50,9 @@ export default function PricingPage() {
   };
 
   return (
-    <>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       <Header />
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="flex-grow py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
@@ -154,6 +155,7 @@ export default function PricingPage() {
           </div>
         </div>
       </div>
-    </>
+      <Footer />
+    </div>
   );
 }

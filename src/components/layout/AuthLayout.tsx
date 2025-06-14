@@ -1,4 +1,5 @@
 import Header from './Header'
+import Footer from './Footer'
 
 interface AuthLayoutProps {
   children: React.ReactNode
@@ -6,9 +7,10 @@ interface AuthLayoutProps {
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       <Header />
-      <main>{children}</main>
+      <main className="flex-grow">{children}</main>
+      <Footer />
     </div>
   )
 }
