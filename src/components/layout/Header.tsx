@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import Button from '@/components/ui/Button'
+import CompactAIUsageDisplay from '@/components/ai/CompactAIUsageDisplay'
 
 export default function Header() {
   const { data: session } = useSession()
@@ -40,6 +41,9 @@ export default function Header() {
                     アカウント
                   </Button>
                 </Link>
+                <div className="ml-2 border-l border-gray-300 dark:border-gray-600 pl-2">
+                  <CompactAIUsageDisplay />
+                </div>
                 <div className="ml-2 flex items-center space-x-2">
                   {session.user?.image && (
                     <img
@@ -128,6 +132,9 @@ export default function Header() {
                   </button>
                 </Link>
                 <div className="px-3 py-2 border-t border-gray-200 dark:border-gray-700">
+                  <div className="mb-3">
+                    <CompactAIUsageDisplay />
+                  </div>
                   <div className="flex items-center mb-3">
                     {session.user?.image && (
                       <img

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import Button from '@/components/ui/Button'
 import Header from '@/components/layout/Header'
 import { PLANS } from '@/lib/stripe'
+import AIUsageDisplay from '@/components/ai/AIUsageDisplay'
 
 export default function AccountPage() {
   const { data: session, status } = useSession()
@@ -165,6 +166,18 @@ export default function AccountPage() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="mt-8 bg-white dark:bg-gray-800 shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+              AI使用状況
+            </h2>
+          </div>
+
+          <div className="px-6 py-4">
+            <AIUsageDisplay className="max-w-md" />
           </div>
         </div>
 
