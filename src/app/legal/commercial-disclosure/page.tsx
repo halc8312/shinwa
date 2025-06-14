@@ -45,7 +45,13 @@ export default function CommercialDisclosurePage() {
 
         <div className="border-b pb-4">
           <h2 className="text-lg font-semibold mb-2">支払い方法</h2>
-          <p>クレジットカード（Visa、Mastercard、American Express、JCB等）</p>
+          <div className="space-y-2">
+            <p>・クレジットカード（Visa、Mastercard、American Express、JCB、Diners Club、Discover）</p>
+            <p>・デビットカード（各種国際ブランド付き）</p>
+            <p>・Link（Stripe決済）</p>
+            <p>・Apple Pay</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">※その他の決済方法は随時追加予定</p>
+          </div>
         </div>
 
         <div className="border-b pb-4">
