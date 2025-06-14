@@ -5,15 +5,16 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import Header from '@/components/layout/Header'
+import Footer from '@/components/layout/Footer'
 
 export default function Home() {
   const router = useRouter()
   const { data: session } = useSession()
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950">
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 flex flex-col">
       <Header />
-      <main className="flex min-h-[calc(100vh-64px)] flex-col items-center justify-center p-4 sm:p-6 md:p-8">
+      <main className="flex flex-grow flex-col items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="max-w-5xl w-full">
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 text-gray-900 dark:text-white">
@@ -98,6 +99,7 @@ export default function Home() {
         </div>
       </div>
       </main>
+      <Footer />
     </div>
   )
 }

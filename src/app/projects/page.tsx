@@ -10,6 +10,7 @@ import Link from 'next/link'
 import AISettings, { AISettingsData } from '@/components/settings/AISettings'
 import { useAppStore } from '@/lib/store'
 import Header from '@/components/layout/Header'
+import Footer from '@/components/layout/Footer'
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
@@ -64,9 +65,9 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       <Header />
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
+      <div className="flex-grow max-w-7xl mx-auto px-4 py-6 sm:py-8 w-full">
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
@@ -151,6 +152,7 @@ export default function ProjectsPage() {
           onSave={handleAISettingsSave}
         />
       </div>
+      <Footer />
     </div>
   )
 }
