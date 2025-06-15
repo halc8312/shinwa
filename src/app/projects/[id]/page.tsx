@@ -57,6 +57,13 @@ export default function ProjectDashboard() {
   useEffect(() => {
     // プロジェクト切り替え時にチャプターをクリア
     setChapters([])
+    
+    // 既存データのマイグレーション（キャラクター名をIDに変換）
+    import('@/lib/utils/character-data-migration').then(module => {
+      module.migrateProjectCharacterData(projectId)
+      module.cleanupCharacterLocations(projectId)
+    })
+    
     loadProject()
     loadChapters()
     loadProjectMeta()

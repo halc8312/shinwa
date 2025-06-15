@@ -560,24 +560,36 @@ ${this.getResponseFormatInstructions(chapterCount)}
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[1])
         if (Array.isArray(parsed)) {
-          return parsed.slice(0, expectedCount).map((ch, index) => ({
-            number: ch.number || index + 1,
-            title: ch.title && ch.title !== `第${index + 1}章` ? ch.title : '',
-            purpose: ch.purpose || '',
-            keyEvents: ch.keyEvents || [],
-            conflict: ch.conflict,
-            resolution: ch.resolution,
-            hook: ch.hook,
-            targetWordCount: ch.targetWordCount,
-            tensionLevel: ch.tensionLevel || 5,
-            notes: ch.notes,
-            // 新しいフィールド
-            charactersInvolved: ch.charactersInvolved || [],
-            location: ch.location,
-            time: ch.time,
-            foreshadowingToPlant: ch.foreshadowingToPlant || [],
-            foreshadowingToReveal: ch.foreshadowingToReveal || []
-          }))
+          // キャラクター情報を取得
+          const storedCharacters = localStorage.getItem(`shinwa-characters-${this.projectId}`)
+          const characters: Character[] = storedCharacters ? JSON.parse(storedCharacters) : []
+          
+          return parsed.slice(0, expectedCount).map((ch, index) => {
+            // キャラクター名をIDに変換
+            let charactersInvolved = ch.charactersInvolved || []
+            if (charactersInvolved.length > 0 && characters.length > 0) {
+              charactersInvolved = this.convertCharacterNamesToIds(charactersInvolved, characters)
+            }
+            
+            return {
+              number: ch.number || index + 1,
+              title: ch.title && ch.title !== `第${index + 1}章` ? ch.title : '',
+              purpose: ch.purpose || '',
+              keyEvents: ch.keyEvents || [],
+              conflict: ch.conflict,
+              resolution: ch.resolution,
+              hook: ch.hook,
+              targetWordCount: ch.targetWordCount,
+              tensionLevel: ch.tensionLevel || 5,
+              notes: ch.notes,
+              // 新しいフィールド
+              charactersInvolved: charactersInvolved,
+              location: ch.location,
+              time: ch.time,
+              foreshadowingToPlant: ch.foreshadowingToPlant || [],
+              foreshadowingToReveal: ch.foreshadowingToReveal || []
+            }
+          })
         }
       }
     } catch (error) {
@@ -645,6 +657,38 @@ ${this.getResponseFormatInstructions(chapterCount)}
         type
       }
     })
+  }
+
+  /**
+   * キャラクター名の配列をIDの配列に変換
+   */
+  private convertCharacterNamesToIds(charactersArray: string[], availableCharacters: Character[]): string[] {
+    const convertedIds: string[] = []
+    
+    charactersArray.forEach(item => {
+      // すでにIDの場合
+      const existingCharacter = availableCharacters.find(c => c.id === item)
+      if (existingCharacter) {
+        convertedIds.push(item)
+        return
+      }
+      
+      // 名前で検索
+      const characterByName = availableCharacters.find(c => 
+        c.name.toLowerCase() === item.toLowerCase() ||
+        (c.aliases && c.aliases.some(alias => alias.toLowerCase() === item.toLowerCase()))
+      )
+      
+      if (characterByName) {
+        console.log(`[ChapterStructureService] Converting character name "${item}" to ID "${characterByName.id}"`)
+        convertedIds.push(characterByName.id)
+      } else {
+        console.warn(`[ChapterStructureService] Could not find character for "${item}"`)
+        // 見つからない場合は除外（章構造では厳密にIDのみを保持）
+      }
+    })
+    
+    return convertedIds
   }
 
   /**
