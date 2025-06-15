@@ -80,36 +80,6 @@ export default function ProjectDashboard() {
     }
   }
 
-  const getLocationName = (locationId: string): string => {
-    if (!worldMapSystem || !locationId || locationId === 'unknown') {
-      return '不明'
-    }
-
-    // 世界地図から検索
-    const worldLocation = worldMapSystem.worldMap.locations.find(loc => loc.id === locationId)
-    if (worldLocation) {
-      return worldLocation.name
-    }
-
-    // 地域地図から検索
-    for (const region of worldMapSystem.regions) {
-      const regionLocation = region.locations.find(loc => loc.id === locationId)
-      if (regionLocation) {
-        return regionLocation.name
-      }
-    }
-
-    // ローカル地図から検索
-    for (const localMap of worldMapSystem.localMaps) {
-      const localArea = localMap.areas.find(area => area.id === locationId)
-      if (localArea) {
-        return localArea.name
-      }
-    }
-
-    return '不明'
-  }
-
   const loadProjectData = async () => {
     setIsLoading(true)
     try {
@@ -218,6 +188,8 @@ export default function ProjectDashboard() {
               chapters={chapters}
               characters={characters}
               worldSettings={worldSettings}
+              worldMapSystem={worldMapSystem}
+              projectId={projectId}
             />
           )}
           {activeTab === 'timeline' && (
@@ -402,15 +374,48 @@ function OverviewTab({ project, chapters, characters, worldSettings, writingRule
 }
 
 // 状態管理タブ
-function StateManagementTab({ chapters, characters, worldSettings }: {
+function StateManagementTab({ chapters, characters, worldSettings, worldMapSystem, projectId }: {
   chapters: Chapter[]
   characters: Character[]
   worldSettings: WorldSettings | null
+  worldMapSystem: WorldMapSystem | null
+  projectId: string
 }) {
   const latestChapter = chapters[chapters.length - 1]
   const currentState = latestChapter?.state
 
   // キャラクターごとの現在位置と状態を集計
+  // getLocationName関数を定義
+  const getLocationName = (locationId: string): string => {
+    if (!worldMapSystem || !locationId || locationId === 'unknown') {
+      return '不明'
+    }
+
+    // 世界地図から検索
+    const worldLocation = worldMapSystem.worldMap.locations.find(loc => loc.id === locationId)
+    if (worldLocation) {
+      return worldLocation.name
+    }
+
+    // 地域地図から検索
+    for (const region of worldMapSystem.regions) {
+      const regionLocation = region.locations.find(loc => loc.id === locationId)
+      if (regionLocation) {
+        return regionLocation.name
+      }
+    }
+
+    // ローカル地図から検索
+    for (const localMap of worldMapSystem.localMaps) {
+      const localArea = localMap.areas.find(area => area.id === locationId)
+      if (localArea) {
+        return localArea.name
+      }
+    }
+
+    return '不明'
+  }
+
   const characterStates = characters.map(character => {
     // デバッグログ
     console.log(`Checking character ${character.name} (${character.id})`)
