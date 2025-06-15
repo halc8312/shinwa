@@ -35,6 +35,8 @@ export default function ChapterStructureSetup({
   const [chapterStructure, setChapterStructure] = useState<ChapterStructure | null>(null)
   const [editingChapter, setEditingChapter] = useState<number | null>(null)
   const [customChapterCount, setCustomChapterCount] = useState(10)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [hasExistingStructure, setHasExistingStructure] = useState(false)
 
   const novelTypeOptions = Object.entries(NOVEL_TYPE_CONFIGS).map(([key, config]) => ({
     value: key,
@@ -46,13 +48,36 @@ export default function ChapterStructureSetup({
     label: `${template.name} - ${template.description}`
   }))
 
+  // 既存の章立てを読み込む
   useEffect(() => {
-    // 小説タイプに応じて推奨構造を設定
-    const config = NOVEL_TYPE_CONFIGS[novelType]
-    if (config) {
-      setStructureType(config.recommendedStructure)
+    const service = new ChapterStructureService(projectId)
+    const existingStructure = service.loadChapterStructure(projectId)
+    
+    if (existingStructure) {
+      setChapterStructure(existingStructure)
+      setHasExistingStructure(true)
+      setIsEditMode(true)
+      
+      // 既存の設定を復元
+      const projectData = JSON.parse(localStorage.getItem(`shinwa-project-${projectId}`) || '{}')
+      if (projectData.novelType) {
+        setNovelType(projectData.novelType)
+      }
+      if (existingStructure.structure?.type) {
+        setStructureType(existingStructure.structure.type)
+      }
     }
-  }, [novelType])
+  }, [projectId])
+
+  useEffect(() => {
+    // 小説タイプに応じて推奨構造を設定（新規作成時のみ）
+    if (!hasExistingStructure) {
+      const config = NOVEL_TYPE_CONFIGS[novelType]
+      if (config) {
+        setStructureType(config.recommendedStructure)
+      }
+    }
+  }, [novelType, hasExistingStructure])
 
   const handleGenerateStructure = async () => {
     setIsGenerating(true)
@@ -197,9 +222,38 @@ export default function ChapterStructureSetup({
 
   return (
     <div className="space-y-6">
-      {/* 小説タイプ選択 */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4">小説の規模を選択</h3>
+      {/* 既存の章立てがある場合のヘッダー */}
+      {hasExistingStructure && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                既存の章立てが見つかりました
+              </h3>
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                全{chapterStructure?.totalChapters}章 • {chapterStructure?.structure?.type && STORY_STRUCTURE_TEMPLATES[chapterStructure.structure.type as keyof typeof STORY_STRUCTURE_TEMPLATES]?.name}
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setIsEditMode(false)
+                setChapterStructure(null)
+              }}
+            >
+              新規作成
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 編集モードでない場合は新規作成UI */}
+      {!isEditMode && (
+        <>
+          {/* 小説タイプ選択 */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">小説の規模を選択</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {Object.entries(NOVEL_TYPE_CONFIGS).map(([key, config]) => (
             <button
@@ -412,6 +466,129 @@ export default function ChapterStructureSetup({
                 この章立てで開始
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+      </>
+      )}
+
+      {/* 編集モードの場合は既存の章立てを表示 */}
+      {isEditMode && chapterStructure && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">章立ての確認・編集</h3>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={async () => {
+                  if (confirm('現在の章立てをAIで再生成しますか？')) {
+                    await handleGenerateStructure()
+                  }
+                }}
+                disabled={isGenerating}
+              >
+                {isGenerating ? 'AIが再生成中...' : 'AIで再生成'}
+              </Button>
+            </div>
+          </div>
+          
+          {/* テンション曲線 */}
+          {renderTensionGraph()}
+          
+          {/* 伏線マップ */}
+          <div className="mt-6">
+            <ForeshadowingMap chapterStructure={chapterStructure} />
+          </div>
+          
+          {/* 幕構成 */}
+          <div className="mt-6 space-y-3">
+            <h4 className="font-medium mb-3">幕構成</h4>
+            {chapterStructure.structure.acts.map((act, index) => (
+              <div key={act.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <h4 className="font-medium mb-2">{act.name}</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  {act.description}
+                </p>
+                <p className="text-sm text-gray-500">
+                  第{act.startChapter}章〜第{act.endChapter}章
+                </p>
+              </div>
+            ))}
+          </div>
+          
+          {/* 章一覧 */}
+          <div className="mt-6 space-y-2">
+            <h4 className="font-medium mb-3">章の詳細</h4>
+            {chapterStructure.chapters.map((chapter) => (
+              <div
+                key={chapter.number}
+                className="border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                onClick={() => setEditingChapter(chapter.number)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="font-medium">
+                        第{chapter.number}章
+                        {chapter.title && `: ${chapter.title}`}
+                      </span>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        (chapter.tensionLevel ?? 5) >= 8 
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
+                          : (chapter.tensionLevel ?? 5) <= 3
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
+                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                      }`}>
+                        テンション: {chapter.tensionLevel ?? 5}/10
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      <strong>目的:</strong> {chapter.purpose}
+                    </p>
+                    
+                    {chapter.keyEvents.length > 0 && (
+                      <div className="text-sm mb-2">
+                        <strong>主要イベント:</strong>
+                        <ul className="list-disc list-inside mt-1">
+                          {chapter.keyEvents.slice(0, 3).map((event, i) => (
+                            <li key={i} className="text-gray-600 dark:text-gray-400">
+                              {event}
+                            </li>
+                          ))}
+                          {chapter.keyEvents.length > 3 && (
+                            <li className="text-gray-500 italic">
+                              他{chapter.keyEvents.length - 3}件...
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingChapter(chapter.number)
+                    }}
+                  >
+                    編集
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-8 flex justify-center">
+            <Button
+              onClick={handleComplete}
+              size="lg"
+              className="px-12"
+            >
+              この章立てで保存
+            </Button>
           </div>
         </div>
       )}
