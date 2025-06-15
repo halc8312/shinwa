@@ -6,13 +6,17 @@ import {
   RegionalLocation, 
   TravelMethod,
   MapConnection,
-  TravelTime
+  TravelTime,
+  WorldSettings
 } from '@/lib/types'
 import { WorldMapService } from '@/lib/services/world-map-service'
+import { TransportService } from '@/lib/services/transport-service'
 
 interface TravelSimulatorProps {
   worldMapSystem: WorldMapSystem
   characters: Character[]
+  projectId: string
+  worldSettings?: WorldSettings
   onTravelComplete?: (characterId: string, locationId: string) => void
 }
 
@@ -24,7 +28,9 @@ interface RoutePoint {
 
 const TravelSimulator: React.FC<TravelSimulatorProps> = ({ 
   worldMapSystem, 
-  characters, 
+  characters,
+  projectId,
+  worldSettings,
   onTravelComplete 
 }) => {
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>('')
@@ -53,8 +59,16 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
     return allLocations.find(loc => loc.id === locationId)
   }
 
-  // Get available travel methods based on era
+  // TransportServiceのインスタンス
+  const transportService = useMemo(() => new TransportService(projectId), [projectId])
+
+  // Get available travel methods based on era and world settings
   const availableTravelMethods = useMemo(() => {
+    // worldSettingsがある場合はTransportServiceから取得
+    if (worldSettings) {
+      return transportService.getAvailableTransports(worldSettings)
+    }
+    
     // デフォルトの移動手段を定義
     const defaultMethods: TravelMethod[] = [
       { type: 'walk', speed: 4, availability: '全時代' },
@@ -82,7 +96,7 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
     }
     
     return methods.sort((a, b) => a.speed - b.speed)
-  }, [worldMapSystem])
+  }, [worldMapSystem, worldSettings, transportService])
 
   // Find the best route between two locations
   const findRoute = (fromId: string, toId: string): MapConnection[] => {
@@ -347,17 +361,22 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
                 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
               disabled={!currentLocationId || !destinationId}
             >
-              {availableTravelMethods.map(method => (
-                <option key={method.type} value={method.type}>
-                  {method.type === 'walk' ? '徒歩' : 
-                   method.type === 'horse' ? '馬' :
-                   method.type === 'carriage' ? '馬車' :
-                   method.type === 'ship' ? '船' :
-                   method.type === 'flight' ? '飛行' :
-                   method.type} 
-                  ({method.speed} km/h) - {method.availability}
-                </option>
-              ))}
+              {!travelMethod && <option value="">移動手段を選択...</option>}
+              {availableTravelMethods.length > 0 ? (
+                availableTravelMethods.map(method => (
+                  <option key={method.type} value={method.type}>
+                    {method.type === 'walk' ? '徒歩' : 
+                     method.type === 'horse' ? '馬' :
+                     method.type === 'carriage' ? '馬車' :
+                     method.type === 'ship' ? '船' :
+                     method.type === 'flight' ? '飛行' :
+                     method.type} 
+                    ({method.speed} km/h) - {method.availability}
+                  </option>
+                ))
+              ) : (
+                <option value="walk">徒歩 (4 km/h) - 全時代</option>
+              )}
             </select>
           </div>
 

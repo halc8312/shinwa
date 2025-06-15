@@ -10,7 +10,10 @@ type ViewMode = 'world' | 'region' | 'connections'
 const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => {
   const [selectedView, setSelectedView] = useState<ViewMode>('world')
   const [selectedLocation, setSelectedLocation] = useState<WorldLocation | RegionalLocation | null>(null)
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  // 初期値を最初のリージョンのIDに設定
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(
+    worldMapSystem.regions && worldMapSystem.regions.length > 0 ? worldMapSystem.regions[0].id : null
+  )
 
   // Get location icon based on type
   const getLocationIcon = (type: string) => {
@@ -166,7 +169,7 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
         {/* Region selector */}
         <div className="mb-4">
           <select
-            value={region.id}
+            value={selectedRegion || region.id}
             onChange={(e) => setSelectedRegion(e.target.value)}
             className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
               bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"

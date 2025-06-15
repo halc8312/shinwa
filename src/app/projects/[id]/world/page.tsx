@@ -777,6 +777,8 @@ export default function WorldSettingsPage() {
                   <TravelSimulator
                     worldMapSystem={worldMap}
                     characters={characters}
+                    projectId={projectId}
+                    worldSettings={worldSettings || undefined}
                     onTravelComplete={(characterId, locationId) => {
                       // Store character location separately
                       const characterLocations = JSON.parse(

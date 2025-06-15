@@ -172,7 +172,8 @@ export default function ProjectDashboard() {
     const stored = localStorage.getItem(`shinwa-character-location-${projectId}`)
     if (stored) {
       try {
-        setCharacterLocations(JSON.parse(stored))
+        const locations = JSON.parse(stored)
+        setCharacterLocations(locations)
       } catch (error) {
         console.error('Failed to load character locations:', error)
       }

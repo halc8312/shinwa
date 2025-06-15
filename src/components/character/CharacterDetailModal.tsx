@@ -20,21 +20,34 @@ export default function CharacterDetailModal({
   onEdit
 }: CharacterDetailModalProps) {
   const [relatedCharacters, setRelatedCharacters] = useState<Character[]>([])
+  const [allCharacters, setAllCharacters] = useState<Character[]>([])
 
   useEffect(() => {
-    if (character && character.relationships.length > 0) {
+    if (isOpen && projectId) {
+      loadAllCharacters()
+    }
+  }, [isOpen, projectId])
+
+  useEffect(() => {
+    if (character && character.relationships.length > 0 && allCharacters.length > 0) {
       loadRelatedCharacters()
     } else {
       setRelatedCharacters([])
     }
-  }, [character, character?.relationships])
+  }, [character, character?.relationships, allCharacters])
+
+  const loadAllCharacters = async () => {
+    const characters = await characterService.getCharacters(projectId)
+    setAllCharacters(characters)
+  }
 
   const loadRelatedCharacters = async () => {
-    if (!character) return
+    if (!character || allCharacters.length === 0) return
     
     const characterIds = character.relationships.map(r => r.characterId)
-    const characters = await characterService.getCharactersByIds(projectId, characterIds)
-    setRelatedCharacters(characters)
+    const related = allCharacters.filter(char => characterIds.includes(char.id))
+    
+    setRelatedCharacters(related)
   }
 
   if (!character) return null
