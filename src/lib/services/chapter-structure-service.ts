@@ -34,7 +34,7 @@ export class ChapterStructureService {
     structureType: StoryStructure['type']
     plotOutline?: string
   }): Promise<ChapterStructure> {
-    const modelSettings = getFeatureModelSettings(this.projectId, 'chapterPlanning')
+    const baseModelSettings = getFeatureModelSettings(this.projectId, 'chapterPlanning')
     const template = params.structureType === 'custom' 
       ? null 
       : STORY_STRUCTURE_TEMPLATES[params.structureType as keyof typeof STORY_STRUCTURE_TEMPLATES]
@@ -45,6 +45,9 @@ export class ChapterStructureService {
     // 章数の決定
     const chapterCount = this.calculateChapterCount(params.novelType)
     
+    // 章数に応じてAI設定を調整
+    const modelSettings = this.adjustModelSettingsForChapterCount(baseModelSettings, chapterCount)
+    
     // 幕構成の作成
     const acts = this.createActs(template, chapterCount)
     
@@ -52,7 +55,7 @@ export class ChapterStructureService {
     const messages: AIMessage[] = [
       {
         role: 'system',
-        content: this.buildSystemPrompt(params.genre, params.structureType, projectData.writingRules)
+        content: this.buildSystemPrompt(params.genre, params.structureType, projectData.writingRules, chapterCount)
       },
       {
         role: 'user',
@@ -82,8 +85,9 @@ export class ChapterStructureService {
       }
     } catch (error) {
       console.error('Failed to generate chapter structure:', error)
-      // フォールバック：基本的な章立てを生成（プロジェクトデータを含む）
-      return this.createFallbackStructure(params.novelType, params.structureType, projectData)
+      console.warn('Using fallback structure with enhanced project data integration')
+      // フォールバック：プロジェクトデータを活用した詳細な章立てを生成
+      return this.createFallbackStructure(params, chapterCount, acts, projectData)
     }
   }
 
@@ -207,7 +211,7 @@ export class ChapterStructureService {
   /**
    * システムプロンプトの構築
    */
-  private buildSystemPrompt(genre: string, structureType: string, writingRules?: WritingRules): string {
+  private buildSystemPrompt(genre: string, structureType: string, writingRules?: WritingRules, chapterCount?: number): string {
     const template = structureType === 'custom' 
       ? null 
       : STORY_STRUCTURE_TEMPLATES[structureType as keyof typeof STORY_STRUCTURE_TEMPLATES]
@@ -238,14 +242,91 @@ ${template ? `${template.name}（${template.description}）に基づいて` : '�
 9. 時間（time: 時間帯や経過時間）
 10. 伏線の設置と回収計画
 
-伏線について：
-- 短期伏線（1-3章で回収）: キャラクターの秘密、小さな謎
-- 中期伏線（4-10章で回収）: 重要な出来事の予兆、関係性の変化
-- 長期伏線（11章以上で回収）: 物語の核心に関わる謎、最終的な解決への鍵
+${this.getForeshadowingGuidelines(chapterCount || 10)}
 
 物語全体の緩急とペースを考慮し、伏線の設置と回収を計画的に行い、読者を引き込む構成を心がけてください。`
     
     return prompt
+  }
+
+  /**
+   * 章数に応じてモデル設定を調整
+   */
+  private adjustModelSettingsForChapterCount(
+    baseSettings: AIModelSettings[keyof AIModelSettings],
+    chapterCount: number
+  ): AIModelSettings[keyof AIModelSettings] {
+    // 章数に応じてトークン制限を調整
+    let maxTokens = baseSettings.maxTokens
+    let temperature = baseSettings.temperature
+    
+    if (chapterCount <= 3) {
+      // 短編：デフォルト設定のまま
+      maxTokens = 2000
+      temperature = 0.7
+    } else if (chapterCount <= 10) {
+      // 中編：トークンを増やす
+      maxTokens = 3500
+      temperature = 0.7
+    } else if (chapterCount <= 20) {
+      // 長編：さらにトークンを増やす
+      maxTokens = 5000
+      temperature = 0.7
+    } else {
+      // 超長編：最大限のトークンを使用
+      maxTokens = 8000
+      temperature = 0.7
+      // 必要に応じてより高性能なモデルを使用
+      if (baseSettings.model === 'gpt-4.1-mini') {
+        return {
+          ...baseSettings,
+          model: 'gpt-4o-mini',
+          maxTokens,
+          temperature
+        }
+      }
+    }
+    
+    return {
+      ...baseSettings,
+      maxTokens,
+      temperature
+    }
+  }
+
+  /**
+   * 章数に応じた伏線ガイドラインの生成
+   */
+  private getForeshadowingGuidelines(chapterCount: number): string {
+    if (chapterCount <= 3) {
+      // 短編小説の場合
+      return `伏線について（全${chapterCount}章）：
+- 即効性伏線（同章内で回収）: 読者の興味を引く小さな謎、キャラクターの発言の真意
+- 短期伏線（1-2章で回収）: キャラクターの秘密、物語の核心に関わる謎
+- 各章で最低1つの伏線を設置し、最終章までに全て回収してください`
+    } else if (chapterCount <= 5) {
+      // 短めの中編
+      return `伏線について（全${chapterCount}章）：
+- 即効性伏線（同章内で回収）: 場面の緊張感を高める小さな謎
+- 短期伏線（1-2章で回収）: キャラクターの行動の真意、隠された事実
+- 中期伏線（3-${chapterCount}章で回収）: 物語の転換点に関わる秘密、最終的な解決への鍵`
+    } else if (chapterCount <= 10) {
+      // 中編小説
+      const midPoint = Math.floor(chapterCount / 2)
+      return `伏線について（全${chapterCount}章）：
+- 短期伏線（1-2章で回収）: キャラクターの小さな秘密、日常の謎
+- 中期伏線（3-${midPoint}章で回収）: 重要な出来事の予兆、関係性の変化の兆し
+- 長期伏線（${midPoint + 1}-${chapterCount}章で回収）: 物語の核心に関わる謎、最終的な解決への鍵`
+    } else {
+      // 長編小説
+      const shortRange = Math.floor(chapterCount * 0.2)
+      const midRange = Math.floor(chapterCount * 0.5)
+      return `伏線について（全${chapterCount}章）：
+- 短期伏線（1-${shortRange}章で回収）: キャラクターの秘密、小さな謎、日常的な違和感
+- 中期伏線（${shortRange + 1}-${midRange}章で回収）: 重要な出来事の予兆、関係性の変化、世界観の秘密
+- 長期伏線（${midRange + 1}章以上で回収）: 物語の核心に関わる謎、主人公の運命、最終的な解決への鍵
+- 超長期伏線（最終章付近で回収）: 物語全体を貫く謎、読者の予想を覆す真実`
+    }
   }
 
   /**
@@ -503,83 +584,219 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
   }
 
   /**
-   * フォールバック構造の作成
+   * フォールバック構造の作成（改善版）
    */
   private createFallbackStructure(
-    novelType: NovelTypeConfig,
-    structureType: StoryStructure['type'],
-    projectData?: { writingRules?: WritingRules, worldSettings?: WorldSettings, characters?: Character[] }
+    params: {
+      projectName: string
+      description: string
+      genre: string
+      themes: string[]
+      novelType: NovelTypeConfig
+      structureType: StoryStructure['type']
+      plotOutline?: string
+    },
+    chapterCount: number,
+    acts: Act[],
+    projectData: { writingRules?: WritingRules, worldSettings?: WorldSettings, characters?: Character[] }
   ): ChapterStructure {
-    const chapterCount = novelType.chapterCountRange.min
-    const template = structureType === 'custom' 
-      ? null 
-      : STORY_STRUCTURE_TEMPLATES[structureType as keyof typeof STORY_STRUCTURE_TEMPLATES]
-    const acts = template ? this.createActs(template, chapterCount) : []
+    // キャラクター情報の準備
+    const mainCharacters = projectData.characters || []
+    const mainCharacterIds = mainCharacters.map(c => c.id)
+    const worldName = projectData.worldSettings?.name || params.projectName + 'の世界'
     
     // 各章に適切なテンションと目的を設定
     const chapters: ChapterOutline[] = Array.from({ length: chapterCount }, (_, i) => {
       const chapterNum = i + 1
+      const progress = (chapterNum - 1) / (chapterCount - 1)
       
       // どの幕に属するか判定
       const act = acts.find(a => chapterNum >= a.startChapter && chapterNum <= a.endChapter)
       const actIndex = acts.findIndex(a => a === act)
       
+      // 章のタイトルを生成（ジャンルとテーマを考慮）
+      const chapterTitle = this.generateChapterTitle(chapterNum, progress, params.genre, params.themes, act)
+      
       // 幕に応じたテンションレベルを設定
       let tensionLevel = 5
       let purpose = '物語を展開する'
-      let keyEvents = ['出来事1', '出来事2']
+      let keyEvents: string[] = []
+      let conflict = ''
+      let resolution = ''
+      let hook = ''
       
-      if (structureType === 'three-act') {
+      if (params.structureType === 'three-act') {
         if (actIndex === 0) { // 第一幕
           tensionLevel = 3 + Math.floor((chapterNum - act!.startChapter) / (act!.endChapter - act!.startChapter + 1) * 3)
-          purpose = '設定と導入を行う'
-          keyEvents = ['キャラクター紹介', '世界観の提示', '事件の予兆']
+          purpose = mainCharacters.length > 0 
+            ? `${mainCharacters[0].name}の日常と${worldName}の世界観を確立する`
+            : '主人公の日常と世界観を確立する'
+          keyEvents = [
+            mainCharacters.length > 0 ? `${mainCharacters[0].name}の登場` : '主人公の登場',
+            `${worldName}の描写`,
+            '物語の発端となる出来事'
+          ]
+          conflict = '日常と非日常の境界'
+          resolution = '冒険への第一歩'
+          hook = '予期せぬ出来事の予感'
         } else if (actIndex === 1) { // 第二幕
-          const progress = (chapterNum - act!.startChapter) / (act!.endChapter - act!.startChapter + 1)
-          tensionLevel = 5 + Math.floor(progress * 3)
-          purpose = '葛藤と成長を描く'
-          keyEvents = ['試練に直面', '仲間との協力', '新たな発見']
+          const actProgress = (chapterNum - act!.startChapter) / (act!.endChapter - act!.startChapter + 1)
+          tensionLevel = 5 + Math.floor(actProgress * 3)
+          purpose = '主人公が試練に直面し、成長の機会を得る'
+          keyEvents = [
+            '新たな障害の出現',
+            mainCharacters.length > 1 ? `${mainCharacters[1].name}との出会い` : '重要人物との出会い',
+            '力の覚醒または新たな能力の獲得'
+          ]
+          conflict = '内なる葛藤と外的障害'
+          resolution = '一時的な勝利または敗北'
+          hook = 'より大きな脅威の示唆'
         } else { // 第三幕
           tensionLevel = 8 + Math.floor((chapterNum - act!.startChapter) / (act!.endChapter - act!.startChapter + 1) * 2)
-          purpose = 'クライマックスと解決を描く'
-          keyEvents = ['最終対決', '伏線回収', '結末への道']
+          purpose = '全ての要素が収束し、物語が結末へ向かう'
+          keyEvents = [
+            '最終決戦への準備',
+            '伏線の回収と真実の解明',
+            'クライマックスと結末'
+          ]
+          conflict = '最大の危機と決断'
+          resolution = '物語の主題の結実'
+          hook = chapterNum === chapterCount ? '' : '最後の転換点'
         }
-      } else if (structureType === 'four-act') {
+      } else if (params.structureType === 'four-act') {
         if (actIndex === 0) { // 起
           tensionLevel = 2 + Math.floor((chapterNum - 1) * 2)
-          purpose = '物語の導入と世界観の確立'
+          purpose = `${worldName}の日常風景と登場人物の紹介`
+          keyEvents = [
+            '物語世界の日常描写',
+            mainCharacters[0] ? `${mainCharacters[0].name}の生活` : '主人公の生活',
+            '変化の予兆'
+          ]
+          conflict = '平穏な日常に潜む違和感'
+          resolution = '日常の中での小さな変化'
+          hook = '何かが始まる予感'
         } else if (actIndex === 1) { // 承
           tensionLevel = 4 + Math.floor((chapterNum - act!.startChapter) * 1.5)
-          purpose = '事件の展開と問題の深化'
+          purpose = '事件が動き始め、物語が本格的に展開する'
+          keyEvents = [
+            '事件の発生と展開',
+            '人間関係の深化',
+            '問題の複雑化'
+          ]
+          conflict = '予想外の展開と新たな問題'
+          resolution = '一時的な解決と新たな謎'
+          hook = 'より深い真実への手がかり'
         } else if (actIndex === 2) { // 転
           tensionLevel = 7 + Math.floor((chapterNum - act!.startChapter) * 1)
-          purpose = '転換点と最大の危機'
+          purpose = '物語の転換点、最も劇的な展開'
+          keyEvents = [
+            '衝撃的な真実の発覚',
+            '最大の危機',
+            '決断の時'
+          ]
+          conflict = '全てを失う危機'
+          resolution = '覚悟と決意'
+          hook = '最終決戦への道'
         } else { // 結
-          tensionLevel = 8 - Math.floor((chapterNum - act!.startChapter) * 2)
-          purpose = '解決と新たな日常'
+          tensionLevel = Math.max(3, 8 - Math.floor((chapterNum - act!.startChapter) * 2))
+          purpose = '全ての結末と新たな始まり'
+          keyEvents = [
+            '最終対決',
+            '問題の解決',
+            '新たな日常への回帰'
+          ]
+          conflict = '最後の障害'
+          resolution = '大団円'
+          hook = chapterNum === chapterCount ? '' : 'エピローグへの架橋'
         }
-      } else { // hero-journey
+      } else if (params.structureType === 'hero-journey') {
         const totalProgress = (chapterNum - 1) / (chapterCount - 1)
         tensionLevel = Math.floor(3 + totalProgress * 5 + Math.sin(totalProgress * Math.PI) * 2)
-        if (actIndex === 0) purpose = '冒険への旅立ち'
-        else if (actIndex === 1) purpose = '試練と成長'
-        else if (actIndex === 2) purpose = '帰還と変化'
-        else purpose = '新たな世界での生活'
+        
+        if (actIndex === 0) { // 出発
+          purpose = '日常世界から冒険への旅立ち'
+          keyEvents = [
+            '日常世界での主人公',
+            '冒険への誘い',
+            '師との出会い'
+          ]
+          conflict = '冒険への躊躇'
+          resolution = '第一関門の突破'
+          hook = '未知の世界への扉'
+        } else if (actIndex === 1) { // 試練
+          purpose = '未知の世界での試練と成長'
+          keyEvents = [
+            '仲間との出会い',
+            '数々の試練',
+            '最も深い洞窟への接近'
+          ]
+          conflict = '最大の恐怖との対峙'
+          resolution = '報酬の獲得'
+          hook = '帰還への道'
+        } else if (actIndex === 2) { // 帰還
+          purpose = '変化した主人公の帰還'
+          keyEvents = [
+            '帰路での追跡',
+            '復活と最終試練',
+            '霊薬を持っての帰還'
+          ]
+          conflict = '二つの世界の間での葛藤'
+          resolution = '両世界の調和'
+          hook = '新たな冒険の可能性'
+        } else { // 再生
+          purpose = '変容を遂げた主人公の新たな生活'
+          keyEvents = [
+            '日常世界の変化',
+            '主人公の新たな役割',
+            '物語の意味の結実'
+          ]
+          conflict = '新旧の価値観の統合'
+          resolution = '完全なる変容'
+          hook = ''
+        }
+      } else { // custom or default
+        purpose = `第${chapterNum}章の展開`
+        keyEvents = ['重要な出来事', '展開', '次への布石']
+        tensionLevel = 5 + Math.floor(progress * 3)
+        conflict = '章の中心的な葛藤'
+        resolution = '章の結末'
+        hook = chapterNum < chapterCount ? '次章への引き' : ''
       }
+      
+      // 伏線の設定（章数に応じて動的に）
+      const foreshadowingToPlant = this.generateForeshadowingForChapter(
+        chapterNum, 
+        chapterCount, 
+        progress,
+        params.genre,
+        mainCharacters
+      )
+      
+      // 場所と時間の設定
+      const location = this.generateLocation(chapterNum, worldName, act)
+      const time = this.generateTimeframe(chapterNum, progress)
+      
+      // キャラクターの関与（章の進行に応じて増やす）
+      const charactersInvolved = this.selectCharactersForChapter(
+        chapterNum,
+        chapterCount,
+        mainCharacterIds
+      )
       
       return {
         number: chapterNum,
-        title: '',
+        title: chapterTitle,
         purpose,
         keyEvents,
+        conflict,
+        resolution,
+        hook,
         tensionLevel: Math.max(1, Math.min(10, tensionLevel)),
-        // プロジェクトデータが利用可能な場合は、キャラクター情報を追加
-        charactersInvolved: projectData?.characters ? 
-          projectData.characters.slice(0, Math.min(3, projectData.characters.length)).map(c => c.id) : [],
-        location: projectData?.worldSettings?.name || '',
-        time: '',
-        foreshadowingToPlant: [],
-        foreshadowingToReveal: []
+        charactersInvolved,
+        location,
+        time,
+        foreshadowingToPlant,
+        foreshadowingToReveal: [] // フォールバックでは回収は設定しない
       }
     })
     
@@ -592,6 +809,138 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
       chapters,
       tensionCurve: this.generateTensionCurve(chapters)
     }
+  }
+
+  /**
+   * 章のタイトルを生成
+   */
+  private generateChapterTitle(
+    chapterNum: number,
+    progress: number,
+    genre: string,
+    themes: string[],
+    act?: Act
+  ): string {
+    const titles: { [key: string]: string[] } = {
+      'ファンタジー': [
+        '始まりの予兆', '運命の出会い', '試練の道', '覚醒の時', '決戦の刻',
+        '新たなる旅立ち', '隠された真実', '絆の力', '最後の希望', '永遠の誓い'
+      ],
+      'SF': [
+        '第一接触', '未知との遭遇', '時空の裂け目', '進化の兆し', '最終プロトコル',
+        '新世界の扉', '量子の揺らぎ', '意識の覚醒', '特異点', '星々の彼方へ'
+      ],
+      'ミステリー': [
+        '最初の手がかり', '消えた証拠', '第二の事件', '容疑者たち', '真相への道',
+        '隠された動機', '偽りの証言', '決定的瞬間', '全ての謎が解ける時', '事件の終幕'
+      ],
+      'ロマンス': [
+        '偶然の出会い', '心の距離', 'すれ違う想い', '告白の時', '試される愛',
+        '別れの予感', '再会の約束', '永遠の誓い', '新しい朝', '二人の未来'
+      ]
+    }
+    
+    const genreTitles = titles[genre] || titles['ファンタジー']
+    const index = Math.min(Math.floor(progress * genreTitles.length), genreTitles.length - 1)
+    
+    // テーマを考慮してタイトルをカスタマイズ
+    if (themes.includes('成長')) {
+      return chapterNum === 1 ? '小さな一歩' : genreTitles[index]
+    } else if (themes.includes('復讐')) {
+      return chapterNum === 1 ? '失われた日々' : genreTitles[index]
+    }
+    
+    return genreTitles[index]
+  }
+
+  /**
+   * 章ごとの伏線を生成
+   */
+  private generateForeshadowingForChapter(
+    chapterNum: number,
+    totalChapters: number,
+    progress: number,
+    genre: string,
+    characters: Character[]
+  ): any[] {
+    const foreshadowing = []
+    
+    // 序盤の章では伏線を多めに設置
+    if (progress < 0.3) {
+      foreshadowing.push({
+        hint: characters.length > 0 
+          ? `${characters[0].name}の過去に関する謎めいた言及`
+          : '主人公の過去に関する謎めいた言及',
+        scope: totalChapters <= 5 ? 'short' : 'medium',
+        significance: 'moderate',
+        plannedRevealChapter: Math.min(chapterNum + Math.floor(totalChapters * 0.5), totalChapters),
+        category: 'character'
+      })
+    }
+    
+    // 中盤では物語の核心に関わる伏線
+    if (progress > 0.3 && progress < 0.7) {
+      foreshadowing.push({
+        hint: `${genre}の世界観に関わる重要な秘密`,
+        scope: totalChapters <= 10 ? 'medium' : 'long',
+        significance: 'major',
+        plannedRevealChapter: Math.min(chapterNum + Math.floor(totalChapters * 0.3), totalChapters),
+        category: 'plot'
+      })
+    }
+    
+    return foreshadowing
+  }
+
+  /**
+   * 場所を生成
+   */
+  private generateLocation(chapterNum: number, worldName: string, act?: Act): string {
+    if (!act) return worldName
+    
+    const locations = [
+      `${worldName}の中心部`,
+      `${worldName}の辺境`,
+      `${worldName}の聖地`,
+      `${worldName}の隠れ里`,
+      `${worldName}の古代遺跡`
+    ]
+    
+    return locations[chapterNum % locations.length]
+  }
+
+  /**
+   * 時間枠を生成
+   */
+  private generateTimeframe(chapterNum: number, progress: number): string {
+    if (progress < 0.2) return '物語の始まり'
+    else if (progress < 0.4) return '数日後'
+    else if (progress < 0.6) return '一週間後'
+    else if (progress < 0.8) return '数週間後'
+    else return '物語のクライマックス'
+  }
+
+  /**
+   * 章に関与するキャラクターを選択
+   */
+  private selectCharactersForChapter(
+    chapterNum: number,
+    totalChapters: number,
+    characterIds: string[]
+  ): string[] {
+    if (characterIds.length === 0) return []
+    
+    // 最初は主人公のみ
+    if (chapterNum === 1) return [characterIds[0]]
+    
+    // 徐々にキャラクターを増やす
+    const progress = (chapterNum - 1) / (totalChapters - 1)
+    const numCharacters = Math.min(
+      Math.ceil(progress * characterIds.length),
+      characterIds.length
+    )
+    
+    return characterIds.slice(0, numCharacters)
   }
 
   /**
