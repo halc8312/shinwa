@@ -8,13 +8,14 @@ export interface FlowExecutor {
   executeStep(step: FlowStep, context: FlowContext): Promise<FlowContext>
 }
 
-type FlowEventType = 'stepStart' | 'stepComplete' | 'stepError' | 'flowComplete'
+type FlowEventType = 'stepStart' | 'stepComplete' | 'stepError' | 'flowComplete' | 'log'
 
 interface FlowEventListeners {
   stepStart: ((step: FlowStep) => void)[]
   stepComplete: ((step: FlowStep) => void)[]
   stepError: ((step: FlowStep, error: Error) => void)[]
   flowComplete: ((context: FlowContext) => void)[]
+  log: ((message: string, type?: 'info' | 'warning' | 'error') => void)[]
 }
 
 export class FlowEngine {
@@ -26,7 +27,8 @@ export class FlowEngine {
     stepStart: [],
     stepComplete: [],
     stepError: [],
-    flowComplete: []
+    flowComplete: [],
+    log: []
   }
 
   constructor(flow: Flow, executor: FlowExecutor) {
@@ -37,6 +39,7 @@ export class FlowEngine {
   on(event: 'stepStart' | 'stepComplete', listener: (step: FlowStep) => void): void
   on(event: 'stepError', listener: (step: FlowStep, error: Error) => void): void
   on(event: 'flowComplete', listener: (context: FlowContext) => void): void
+  on(event: 'log', listener: (message: string, type?: 'info' | 'warning' | 'error') => void): void
   on(event: FlowEventType, listener: any): void {
     this.eventListeners[event].push(listener)
   }
@@ -52,9 +55,15 @@ export class FlowEngine {
   private emit(event: 'stepStart' | 'stepComplete', step: FlowStep): void
   private emit(event: 'stepError', step: FlowStep, error: Error): void
   private emit(event: 'flowComplete', context: FlowContext): void
+  private emit(event: 'log', message: string, type?: 'info' | 'warning' | 'error'): void
   private emit(event: FlowEventType, ...args: any[]): void {
     const listeners = this.eventListeners[event]
     listeners.forEach(listener => (listener as any)(...args))
+  }
+
+  // FlowExecutorにログ出力機能を提供
+  log(message: string, type: 'info' | 'warning' | 'error' = 'info'): void {
+    this.emit('log', message, type)
   }
 
   async execute(initialContext: FlowContext = {}): Promise<FlowContext> {

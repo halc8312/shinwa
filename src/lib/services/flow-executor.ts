@@ -14,6 +14,7 @@ import {
 import { generateId } from '../utils'
 import { RulesEngine, getProjectRulesEngine } from './rules-engine'
 import { getFeatureModelSettings } from '../utils/ai-settings'
+import { WorldMapService } from './world-map-service'
 
 export class NovelFlowExecutor implements FlowExecutor {
   private projectId: string
@@ -21,15 +22,24 @@ export class NovelFlowExecutor implements FlowExecutor {
   private temperature: number
   private rulesEngine?: RulesEngine
   private availableCharacters: Character[] = []
+  private flowEngine?: any // FlowEngineの参照を保持
+  private worldMapService: WorldMapService
 
   constructor(projectId: string, aiModel: string, temperature: number = 0.7) {
     this.projectId = projectId
     this.aiModel = aiModel
     this.temperature = temperature
+    this.worldMapService = new WorldMapService(projectId)
+  }
+
+  // FlowEngineを設定するメソッド
+  setFlowEngine(engine: any): void {
+    this.flowEngine = engine
   }
 
   async executeStep(step: FlowStep, context: FlowContext): Promise<FlowContext> {
     console.log(`Executing step: ${step.name} (${step.type})`)
+    this.flowEngine?.log(`ステップの詳細: ${step.name} (${step.type})`, 'info')
 
     // ルールエンジンを初期化（初回のみ）
     if (!this.rulesEngine) {
@@ -58,26 +68,34 @@ export class NovelFlowExecutor implements FlowExecutor {
     for (const input of step.input) {
       switch (input) {
         case 'projectInfo':
+          this.flowEngine?.log('プロジェクト情報を読み込み中...', 'info')
           result.projectInfo = await this.loadProjectInfo()
           break
         case 'projectMeta':
+          this.flowEngine?.log('プロジェクトメタデータを読み込み中...', 'info')
           result.projectMeta = await this.loadProjectMeta()
           break
         case 'writingRules':
+          this.flowEngine?.log('執筆ルールを読み込み中...', 'info')
           result.rules = await this.loadWritingRules()
           break
         case 'worldSettings':
+          this.flowEngine?.log('世界設定を読み込み中...', 'info')
           result.worldSettings = await this.loadWorldSettings()
           break
         case 'characters':
+          this.flowEngine?.log('キャラクター情報を読み込み中...', 'info')
           const characters = await this.loadCharacters()
           this.availableCharacters = characters
           result.characters = characters
+          this.flowEngine?.log(`${characters.length}人のキャラクターを読み込みました`, 'info')
           break
         case 'previousChapter':
+          this.flowEngine?.log(`第${context.chapterNumber - 1}章を読み込み中...`, 'info')
           result.previousChapter = await this.loadPreviousChapter(context.chapterNumber - 1)
           break
         case 'previousState':
+          this.flowEngine?.log('前章の状態を読み込み中...', 'info')
           result.previousState = await this.loadChapterState(context.chapterNumber - 1)
           break
       }
@@ -136,6 +154,7 @@ export class NovelFlowExecutor implements FlowExecutor {
     }
 
     console.log(`Executing ${step.id} with model: ${modelSettings.model}, maxTokens: ${modelSettings.maxTokens}, temperature: ${modelSettings.temperature}`)
+    this.flowEngine?.log(`AI設定 - モデル: ${modelSettings.model}, トークン上限: ${modelSettings.maxTokens}, 温度: ${modelSettings.temperature}`, 'info')
 
     const response = await aiManager.complete({
       model: modelSettings.model,
@@ -145,8 +164,24 @@ export class NovelFlowExecutor implements FlowExecutor {
     })
 
     console.log(`${step.id} response length: ${response.content.length} characters`)
+    this.flowEngine?.log(`生成完了 - 文字数: ${response.content.length}`, 'info')
 
-    return this.parseWritingResponse(step.id, response.content)
+    const result = this.parseWritingResponse(step.id, response.content)
+
+    // 章を書いた後、キャラクターの移動を検証
+    if (step.id === 'write-chapter' && result.chapterContent) {
+      const travelValidation = await this.validateCharacterMovements(result.chapterContent, context)
+      if (travelValidation.warnings.length > 0) {
+        this.flowEngine?.log('移動の警告が検出されました', 'warning')
+        result.travelWarnings = travelValidation.warnings
+      }
+      // キャラクターの位置を更新
+      if (travelValidation.movements.length > 0) {
+        result.characterMovements = travelValidation.movements
+      }
+    }
+
+    return result
   }
 
   private async executeValidateStep(step: FlowStep, context: FlowContext): Promise<FlowContext> {
@@ -207,10 +242,18 @@ export class NovelFlowExecutor implements FlowExecutor {
 
     const aiValidationResult = this.parseValidationResponse(response.content)
     
+    // 移動の警告も含める
+    const travelWarnings = context.travelWarnings || []
+    const allIssues = [
+      rulesCheckResult.issues,
+      aiValidationResult.issues,
+      travelWarnings.length > 0 ? `【移動の警告】\n${travelWarnings.join('\n')}` : ''
+    ].filter(Boolean).join('\n\n')
+    
     // ルールチェックとAIチェックの結果を統合
     const validationResult = {
-      isValid: rulesCheckResult.isValid && aiValidationResult.isValid,
-      issues: [rulesCheckResult.issues, aiValidationResult.issues].filter(Boolean).join('\n\n')
+      isValid: rulesCheckResult.isValid && aiValidationResult.isValid && travelWarnings.length === 0,
+      issues: allIssues
     }
     
     return { validationResult }
@@ -354,7 +397,10 @@ ${genre}小説として適切な展開を心がけてください。`
 
     // 章立て情報も追加
     if (context.chapterOutline) {
+      this.flowEngine?.log(`章立て情報を使用: 第${context.chapterNumber}章 - ${context.chapterOutline.title || '無題'}`, 'info')
       parts.push(`第${context.chapterNumber || 1}章の計画:\n${JSON.stringify(context.chapterOutline, null, 2)}`)
+    } else {
+      this.flowEngine?.log('章立て情報が見つかりません。自由に執筆します。', 'warning')
     }
 
     return parts.join('\n\n')
@@ -899,5 +945,235 @@ ${JSON.stringify(context.previousChapters, null, 2)}
       return JSON.parse(stored)
     }
     return null
+  }
+
+  /**
+   * 章の内容からキャラクターの移動を抽出し、検証する
+   */
+  private async validateCharacterMovements(
+    chapterContent: string,
+    context: FlowContext
+  ): Promise<{
+    movements: Array<{ characterId: string; characterName: string; from: string; to: string }>
+    warnings: string[]
+  }> {
+    const movements = await this.extractCharacterMovements(chapterContent, context)
+    const warnings: string[] = []
+
+    // 世界地図システムを読み込む
+    const worldMapSystem = this.worldMapService.loadWorldMapSystem()
+    if (!worldMapSystem) {
+      console.log('World map system not loaded, skipping travel validation')
+      return { movements, warnings }
+    }
+
+    // 各移動を検証
+    for (const movement of movements) {
+      const validationResult = await this.worldMapService.validateTravel(
+        movement.from,
+        movement.to,
+        movement.characterName,
+        context.chapterNumber || 1
+      )
+
+      if (!validationResult.isValid) {
+        warnings.push(validationResult.message)
+        this.flowEngine?.log(
+          `移動の警告: ${movement.characterName} - ${validationResult.message}`,
+          'warning'
+        )
+      }
+
+      // キャラクターの位置を更新
+      if (movement.characterId) {
+        this.worldMapService.updateCharacterLocation(
+          movement.characterId,
+          movement.to,
+          context.chapterNumber || 1
+        )
+      }
+    }
+
+    return { movements, warnings }
+  }
+
+  /**
+   * 章のテキストからキャラクターの移動を抽出
+   */
+  private async extractCharacterMovements(
+    chapterContent: string,
+    context: FlowContext
+  ): Promise<Array<{ characterId: string; characterName: string; from: string; to: string }>> {
+    const movements: Array<{ characterId: string; characterName: string; from: string; to: string }> = []
+    
+    // 移動を示すパターン
+    const movementPatterns = [
+      /([^。、]+?)は([^。、]+?)から([^。、]+?)へ(?:向かった|出発した|旅立った|移動した)/g,
+      /([^。、]+?)は([^。、]+?)を(?:出て|離れて|後にして)、([^。、]+?)へ/g,
+      /([^。、]+?)は([^。、]+?)に(?:到着した|着いた|辿り着いた)/g,
+      /([^。、]+?)を(?:訪れた|訪問した)([^。、]+)/g,
+      /([^。、]+?)から([^。、]+?)への(?:旅|道のり|移動)/g
+    ]
+
+    // 利用可能なキャラクターのマップを作成
+    const characterMap = new Map<string, string>()
+    if (this.availableCharacters) {
+      this.availableCharacters.forEach(char => {
+        characterMap.set(char.name.toLowerCase(), char.id)
+        // 別名もマップに追加
+        if (char.aliases) {
+          char.aliases.forEach(alias => {
+            characterMap.set(alias.toLowerCase(), char.id)
+          })
+        }
+      })
+    }
+
+    // 前章の状態から現在の位置を取得
+    const currentLocations = new Map<string, string>()
+    if (context.previousState?.charactersPresent && context.previousState?.location) {
+      context.previousState.charactersPresent.forEach((charId: string) => {
+        currentLocations.set(charId, context.previousState.location)
+      })
+    }
+
+    // パターンマッチングで移動を抽出
+    for (const pattern of movementPatterns) {
+      let match
+      while ((match = pattern.exec(chapterContent)) !== null) {
+        const matchText = match[0]
+        
+        // キャラクター名を特定
+        let characterName: string | null = null
+        let characterId: string | null = null
+        
+        // マッチしたテキストからキャラクター名を探す
+        for (const [name, id] of Array.from(characterMap.entries())) {
+          if (matchText.toLowerCase().includes(name)) {
+            characterName = this.availableCharacters.find(c => c.id === id)?.name || name
+            characterId = id
+            break
+          }
+        }
+
+        if (characterName && characterId) {
+          // 移動先を特定（場所名は最後のキャプチャグループと仮定）
+          const destination = match[match.length - 1]?.trim()
+          
+          if (destination) {
+            // 移動元を特定
+            let origin = currentLocations.get(characterId) || '不明'
+            
+            // パターンによって移動元が明示されている場合
+            if (match.length >= 3 && match[2]) {
+              origin = match[2].trim()
+            }
+
+            // 同じ場所への移動でない場合のみ追加
+            if (origin !== destination) {
+              movements.push({
+                characterId,
+                characterName,
+                from: origin,
+                to: destination
+              })
+
+              // 現在位置を更新
+              currentLocations.set(characterId, destination)
+            }
+          }
+        }
+      }
+    }
+
+    // AIを使って補完的な移動抽出を行う
+    if (movements.length === 0 && this.availableCharacters.length > 0) {
+      const aiMovements = await this.extractMovementsWithAI(chapterContent, context)
+      movements.push(...aiMovements)
+    }
+
+    return movements
+  }
+
+  /**
+   * AIを使ってキャラクターの移動を抽出
+   */
+  private async extractMovementsWithAI(
+    chapterContent: string,
+    context: FlowContext
+  ): Promise<Array<{ characterId: string; characterName: string; from: string; to: string }>> {
+    const modelSettings = getFeatureModelSettings(this.projectId, 'validation')
+    
+    const messages: AIMessage[] = [
+      {
+        role: 'system',
+        content: '小説のテキストからキャラクターの移動を抽出してください。移動とは、ある場所から別の場所への物理的な移動を指します。'
+      },
+      {
+        role: 'user',
+        content: `以下の章からキャラクターの移動を抽出してください。
+
+【登場可能なキャラクター】
+${this.availableCharacters.map(c => `- ${c.name}${c.aliases?.length ? ` (別名: ${c.aliases.join(', ')})` : ''}`).join('\n')}
+
+【前章の終了時の状態】
+場所: ${context.previousState?.location || '不明'}
+登場キャラクター: ${context.previousState?.charactersPresent?.map((id: string) => 
+  this.availableCharacters.find(c => c.id === id)?.name || id
+).join('、') || '不明'}
+
+【今回の章の内容】
+${chapterContent.substring(0, 2000)}${chapterContent.length > 2000 ? '...' : ''}
+
+以下の形式のJSONで、検出された移動を出力してください：
+\`\`\`json
+[
+  {
+    "characterName": "キャラクター名",
+    "from": "移動元の場所",
+    "to": "移動先の場所"
+  }
+]
+\`\`\`
+
+注意：
+- 実際に場所を移動している場合のみ抽出
+- 同じ場所内での移動は含めない
+- 明確に移動が記述されている場合のみ抽出`
+      }
+    ]
+
+    try {
+      const response = await aiManager.complete({
+        model: modelSettings.model,
+        messages,
+        temperature: 0.3,
+        maxTokens: 1000
+      })
+
+      const jsonMatch = response.content.match(/```json\n([\s\S]*?)\n```/)
+      if (jsonMatch) {
+        const movements = JSON.parse(jsonMatch[1])
+        
+        // キャラクターIDを特定して返す
+        return movements.map((m: any) => {
+          const character = this.availableCharacters.find(
+            c => c.name === m.characterName || 
+            c.aliases?.includes(m.characterName)
+          )
+          
+          return {
+            characterId: character?.id || '',
+            characterName: m.characterName,
+            from: m.from,
+            to: m.to
+          }
+        }).filter((m: any) => m.characterId) // IDが特定できたもののみ
+      }
+    } catch (error) {
+      console.error('Failed to extract movements with AI:', error)
+    }
+
+    return []
   }
 }

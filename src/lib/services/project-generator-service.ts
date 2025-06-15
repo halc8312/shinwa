@@ -6,9 +6,11 @@ import {
   WorldSettings, 
   Character, 
   Culture,
-  MagicSystem
+  MagicSystem,
+  WorldMapSystem
 } from '../types'
 import { generateId } from '../utils'
+import { WorldMapService } from './world-map-service'
 
 export interface GenerationProgress {
   step: string
@@ -30,6 +32,7 @@ export interface GeneratedContent {
   writingRules: WritingRules
   worldSettings: WorldSettings
   characters: Character[]
+  worldMapSystem?: WorldMapSystem
   plotOutline?: string
   themes?: string[]
   genre?: string
@@ -62,6 +65,7 @@ export class ProjectGeneratorService {
       { name: 'プロジェクト分析', weight: 1 },
       { name: '執筆ルール生成', weight: 1 },
       { name: '世界観設定生成', weight: 2 },
+      { name: '世界地図生成', weight: 2 },
       { name: 'キャラクター生成', weight: 3 },
       { name: '関係性構築', weight: 1 }
     ]
@@ -100,20 +104,39 @@ export class ProjectGeneratorService {
       const worldSettings = await this.generateWorldSettings(analysis, config.aiModel, config.temperature)
       updateProgress(2, 1)
 
-      // Step 4: キャラクター生成
+      // Step 4: 世界地図生成
       updateProgress(3, 0)
-      const characters = await this.generateCharacters(analysis, worldSettings, config.aiModel, config.temperature)
+      let worldMapSystem: WorldMapSystem | undefined
+      try {
+        const worldMapService = new WorldMapService(config.projectId)
+        worldMapSystem = await worldMapService.generateWorldMapSystem(
+          worldSettings,
+          analysis.genre || 'ファンタジー',
+          analysis.themes || []
+        )
+        // 生成した地図をlocalStorageに保存
+        worldMapService.saveWorldMapSystem(worldMapSystem)
+      } catch (error) {
+        console.error('Failed to generate world map:', error)
+        // マップ生成に失敗してもプロジェクト生成は続行
+      }
       updateProgress(3, 1)
 
-      // Step 5: 関係性構築
+      // Step 5: キャラクター生成
       updateProgress(4, 0)
-      const charactersWithRelationships = await this.generateRelationships(characters, analysis, config.aiModel, config.temperature)
+      const characters = await this.generateCharacters(analysis, worldSettings, config.aiModel, config.temperature)
       updateProgress(4, 1)
+
+      // Step 6: 関係性構築
+      updateProgress(5, 0)
+      const charactersWithRelationships = await this.generateRelationships(characters, analysis, config.aiModel, config.temperature)
+      updateProgress(5, 1)
 
       return {
         writingRules,
         worldSettings,
         characters: charactersWithRelationships,
+        worldMapSystem,
         plotOutline: analysis.plotOutline,
         themes: analysis.themes,
         genre: analysis.genre
@@ -558,6 +581,23 @@ ${JSON.stringify(characterList, null, 2)}
     
     if (content.worldSettings.geography.length > 0) {
       sections.push(`\n主要な場所: ${content.worldSettings.geography.join(', ')}`)
+    }
+
+    // 世界地図情報を追加
+    if (content.worldMapSystem) {
+      sections.push('\n### 世界地図')
+      sections.push(`生成された場所: ${content.worldMapSystem.worldMap.locations.length}箇所`)
+      const capitals = content.worldMapSystem.worldMap.locations.filter(loc => loc.type === 'capital')
+      const cities = content.worldMapSystem.worldMap.locations.filter(loc => loc.type === 'major_city')
+      if (capitals.length > 0) {
+        sections.push(`首都: ${capitals.map(c => c.name).join(', ')}`)
+      }
+      if (cities.length > 0) {
+        sections.push(`主要都市: ${cities.map(c => c.name).join(', ')}`)
+      }
+      if (content.worldMapSystem.regions.length > 0) {
+        sections.push(`詳細な地域マップ: ${content.worldMapSystem.regions.length}地域`)
+      }
     }
 
     if (content.worldSettings.cultures.length > 0) {

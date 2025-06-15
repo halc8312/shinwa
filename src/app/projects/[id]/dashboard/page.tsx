@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Project, Chapter, Character, WorldSettings, WritingRules } from '@/lib/types'
+import { Project, Chapter, Character, WorldSettings, WritingRules, WorldMapSystem } from '@/lib/types'
 import { projectService } from '@/lib/services/project-service'
 import { characterService } from '@/lib/services/character-service'
 import { worldService } from '@/lib/services/world-service'
+import { WorldMapService } from '@/lib/services/world-map-service'
 import Button from '@/components/ui/Button'
 import { useAppStore } from '@/lib/store'
 import { countCharacters } from '@/lib/utils'
@@ -27,11 +28,18 @@ export default function ProjectDashboard() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [chapters, setChapters] = useState<Chapter[]>([])
   const [chapterStructure, setChapterStructure] = useState<any>(null)
+  const [worldMapSystem, setWorldMapSystem] = useState<WorldMapSystem | null>(null)
+  const [worldMapService, setWorldMapService] = useState<WorldMapService | null>(null)
 
   useEffect(() => {
     loadProjectData()
     loadChapters()
     loadChapterStructure()
+    
+    // WorldMapServiceを初期化
+    const service = new WorldMapService(projectId)
+    setWorldMapService(service)
+    loadWorldMap(service)
   }, [projectId])
   
   const loadChapters = () => {
@@ -59,6 +67,47 @@ export default function ProjectDashboard() {
         console.error('Failed to load chapter structure:', error)
       }
     }
+  }
+
+  const loadWorldMap = async (service: WorldMapService) => {
+    try {
+      const mapSystem = service.loadWorldMapSystem()
+      if (mapSystem) {
+        setWorldMapSystem(mapSystem)
+      }
+    } catch (error) {
+      console.error('Failed to load world map:', error)
+    }
+  }
+
+  const getLocationName = (locationId: string): string => {
+    if (!worldMapSystem || !locationId || locationId === 'unknown') {
+      return '不明'
+    }
+
+    // 世界地図から検索
+    const worldLocation = worldMapSystem.worldMap.locations.find(loc => loc.id === locationId)
+    if (worldLocation) {
+      return worldLocation.name
+    }
+
+    // 地域地図から検索
+    for (const region of worldMapSystem.regions) {
+      const regionLocation = region.locations.find(loc => loc.id === locationId)
+      if (regionLocation) {
+        return regionLocation.name
+      }
+    }
+
+    // ローカル地図から検索
+    for (const localMap of worldMapSystem.localMaps) {
+      const localArea = localMap.areas.find(area => area.id === locationId)
+      if (localArea) {
+        return localArea.name
+      }
+    }
+
+    return '不明'
   }
 
   const loadProjectData = async () => {
@@ -387,6 +436,8 @@ function StateManagementTab({ chapters, characters, worldSettings }: {
       character,
       isPresent,
       lastLocation: isPresent ? currentState?.location : lastMentionedChapter?.state.location || '不明',
+      lastLocationName: isPresent && currentState?.location ? getLocationName(currentState.location) : 
+                        lastMentionedChapter?.state.location ? getLocationName(lastMentionedChapter.state.location) : '不明',
       lastChapter: lastMentionedChapter?.number || 0
     }
   })
@@ -474,7 +525,7 @@ function StateManagementTab({ chapters, characters, worldSettings }: {
         <h3 className="text-lg font-semibold mb-4">👥 キャラクター位置マップ</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {characterStates.map(({ character, isPresent, lastLocation, lastChapter }) => (
+          {characterStates.map(({ character, isPresent, lastLocation, lastLocationName, lastChapter }) => (
             <div 
               key={character.id}
               className={`border rounded-lg p-4 ${
@@ -495,13 +546,24 @@ function StateManagementTab({ chapters, characters, worldSettings }: {
                 </div>
                 <div>
                   <dt className="text-gray-500 inline">現在地:</dt>
-                  <dd className="inline ml-2">{lastLocation}</dd>
+                  <dd className="inline ml-2">{lastLocationName}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-500 inline">最終登場:</dt>
                   <dd className="inline ml-2">第{lastChapter}章</dd>
                 </div>
               </dl>
+              {worldMapSystem && lastLocation && lastLocation !== '不明' && (
+                <div className="mt-3">
+                  <Link 
+                    href={`/projects/${projectId}/world/map?location=${lastLocation}`}
+                    className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 flex items-center gap-1"
+                  >
+                    <span>地図で見る</span>
+                    <span>→</span>
+                  </Link>
+                </div>
+              )}
             </div>
           ))}
         </div>

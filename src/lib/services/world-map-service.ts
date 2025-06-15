@@ -639,4 +639,228 @@ export class WorldMapService {
     }
     return null
   }
+
+  /**
+   * キャラクターの移動を検証
+   */
+  async validateTravel(
+    fromLocation: string,
+    toLocation: string,
+    characterName: string,
+    chapterNumber: number
+  ): Promise<{ isValid: boolean; message: string }> {
+    const worldMapSystem = this.loadWorldMapSystem()
+    if (!worldMapSystem) {
+      return {
+        isValid: true,
+        message: '世界地図システムが未設定のため、移動検証をスキップしました'
+      }
+    }
+
+    // 場所名を正規化（スペースや特殊文字を除去）
+    const normalizeLocationName = (name: string) => 
+      name.trim().toLowerCase().replace(/[　\s]+/g, '')
+
+    const fromNormalized = normalizeLocationName(fromLocation)
+    const toNormalized = normalizeLocationName(toLocation)
+
+    // 世界地図から場所を検索
+    const findLocationInMap = (locationName: string) => {
+      const normalized = normalizeLocationName(locationName)
+      
+      // 世界レベルで検索
+      const worldLocation = worldMapSystem.worldMap.locations.find(
+        loc => normalizeLocationName(loc.name) === normalized
+      )
+      if (worldLocation) {
+        return { location: worldLocation, mapLevel: 'world' as const }
+      }
+
+      // 地域レベルで検索
+      for (const region of worldMapSystem.regions) {
+        const regionLocation = region.locations.find(
+          loc => normalizeLocationName(loc.name) === normalized
+        )
+        if (regionLocation) {
+          return { location: regionLocation, mapLevel: 'region' as const, regionId: region.id }
+        }
+      }
+
+      // ローカルレベルで検索
+      for (const localMap of worldMapSystem.localMaps) {
+        const localArea = localMap.areas.find(
+          area => normalizeLocationName(area.name) === normalized
+        )
+        if (localArea) {
+          return { location: localArea, mapLevel: 'local' as const, localMapId: localMap.id }
+        }
+      }
+
+      return null
+    }
+
+    const fromLocationData = findLocationInMap(fromLocation)
+    const toLocationData = findLocationInMap(toLocation)
+
+    // 場所が見つからない場合は警告
+    if (!fromLocationData && fromLocation !== '不明') {
+      return {
+        isValid: false,
+        message: `${characterName}の移動元「${fromLocation}」が地図上に存在しません`
+      }
+    }
+
+    if (!toLocationData) {
+      return {
+        isValid: false,
+        message: `${characterName}の移動先「${toLocation}」が地図上に存在しません`
+      }
+    }
+
+    // 両方の場所が存在する場合、移動可能性をチェック
+    if (fromLocationData && toLocationData) {
+      // 場所のIDを取得
+      const getLocationId = (locationData: typeof fromLocationData) => {
+        if (!locationData) return null
+        const loc = locationData.location as any
+        return loc.id || null
+      }
+      
+      const fromId = getLocationId(fromLocationData)
+      const toId = getLocationId(toLocationData)
+      
+      if (!fromId || !toId) {
+        return {
+          isValid: true,
+          message: `${characterName}は${fromLocation}から${toLocation}へ移動しました`
+        }
+      }
+      
+      // 直接接続があるかチェック
+      const directConnection = worldMapSystem.connections.find(
+        conn => (
+          (conn.fromLocationId === fromId && 
+           conn.toLocationId === toId) ||
+          (conn.bidirectional && 
+           conn.fromLocationId === toId && 
+           conn.toLocationId === fromId)
+        )
+      )
+
+      if (directConnection) {
+        // 移動時間を計算
+        const travelTime = worldMapSystem.travelTimes.find(
+          tt => tt.connectionId === directConnection.id
+        )
+
+        if (travelTime) {
+          const method = travelTime.travelMethod
+          const timeHours = Math.round(travelTime.baseTime / 60)
+          
+          return {
+            isValid: true,
+            message: `${characterName}は${fromLocation}から${toLocation}へ${method.type === 'walk' ? '徒歩' : method.type === 'horse' ? '馬' : method.type}で約${timeHours}時間で移動しました`
+          }
+        }
+      }
+
+      // 直接接続がない場合、同じ地域内かチェック
+      if (fromLocationData.mapLevel === 'region' && 
+          toLocationData.mapLevel === 'region' &&
+          fromLocationData.regionId === toLocationData.regionId) {
+        return {
+          isValid: true,
+          message: `${characterName}は同じ地域内で${fromLocation}から${toLocation}へ移動しました`
+        }
+      }
+
+      // 距離を計算して妥当性をチェック
+      const getCoordinates = (locationData: typeof fromLocationData) => {
+        if (!locationData) return null
+        const loc = locationData.location as any
+        return loc.coordinates || null
+      }
+      
+      const fromCoords = getCoordinates(fromLocationData)
+      const toCoords = getCoordinates(toLocationData)
+      
+      if (fromCoords && toCoords) {
+        const distance = this.calculateDistance(fromCoords, toCoords)
+
+        // 世界レベルで50単位以上離れている場合は1章では移動困難
+        if (fromLocationData.mapLevel === 'world' && toLocationData.mapLevel === 'world' && distance > 50) {
+          return {
+            isValid: false,
+            message: `${characterName}が${fromLocation}から${toLocation}へ1章で移動するのは距離が遠すぎます（推定${Math.round(distance * 50)}km）。段階的な移動を描写してください`
+          }
+        }
+      }
+    }
+
+    // デフォルトは許可（柔軟性のため）
+    return {
+      isValid: true,
+      message: `${characterName}は${fromLocation}から${toLocation}へ移動しました`
+    }
+  }
+
+  /**
+   * 二つの場所間の推定移動時間を取得
+   */
+  async getEstimatedTravelTime(
+    fromLocation: string,
+    toLocation: string,
+    travelMethod: string = 'walk'
+  ): Promise<{ time: number; unit: string } | null> {
+    const worldMapSystem = this.loadWorldMapSystem()
+    if (!worldMapSystem) {
+      return null
+    }
+
+    // 場所を検索して接続を確認
+    const normalizeLocationName = (name: string) => 
+      name.trim().toLowerCase().replace(/[　\s]+/g, '')
+
+    const findLocation = (name: string) => {
+      const normalized = normalizeLocationName(name)
+      return worldMapSystem.worldMap.locations.find(
+        loc => normalizeLocationName(loc.name) === normalized
+      )?.id
+    }
+
+    const fromId = findLocation(fromLocation)
+    const toId = findLocation(toLocation)
+
+    if (!fromId || !toId) {
+      return null
+    }
+
+    // 接続を検索
+    const connection = worldMapSystem.connections.find(
+      conn => (
+        (conn.fromLocationId === fromId && conn.toLocationId === toId) ||
+        (conn.bidirectional && conn.fromLocationId === toId && conn.toLocationId === fromId)
+      )
+    )
+
+    if (!connection) {
+      return null
+    }
+
+    // 移動時間を取得
+    const travelTime = worldMapSystem.travelTimes.find(
+      tt => tt.connectionId === connection.id && tt.travelMethod.type === travelMethod
+    )
+
+    if (!travelTime) {
+      return null
+    }
+
+    const hours = Math.round(travelTime.baseTime / 60)
+    if (hours < 24) {
+      return { time: hours, unit: '時間' }
+    } else {
+      return { time: Math.round(hours / 24), unit: '日' }
+    }
+  }
 }

@@ -3,13 +3,16 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Project, WorldSettings, Culture, MagicSystem } from '@/lib/types'
+import { Project, WorldSettings, Culture, MagicSystem, WorldMapSystem, Character } from '@/lib/types'
 import { projectService } from '@/lib/services/project-service'
 import { worldService } from '@/lib/services/world-service'
+import { WorldMapService } from '@/lib/services/world-map-service'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import CultureForm from '@/components/world/CultureForm'
+import WorldMapDisplay from '@/components/world/WorldMapDisplay'
+import TravelSimulator from '@/components/world/TravelSimulator'
 
 export default function WorldSettingsPage() {
   const params = useParams()
@@ -20,8 +23,12 @@ export default function WorldSettingsPage() {
   const [worldSettings, setWorldSettings] = useState<WorldSettings | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState<'basic' | 'geography' | 'cultures' | 'magic'>('basic')
+  const [activeTab, setActiveTab] = useState<'basic' | 'geography' | 'cultures' | 'magic' | 'map' | 'travel'>('basic')
   const [showTemplates, setShowTemplates] = useState(false)
+  const [worldMap, setWorldMap] = useState<WorldMapSystem | null>(null)
+  const [isRegeneratingMap, setIsRegeneratingMap] = useState(false)
+  const [projectMeta, setProjectMeta] = useState<{ plotOutline?: string; themes?: string[]; genre?: string } | null>(null)
+  const [characters, setCharacters] = useState<Character[]>([])
 
   // 基本情報フォーム
   const [basicForm, setBasicForm] = useState({
@@ -50,6 +57,8 @@ export default function WorldSettingsPage() {
 
   useEffect(() => {
     loadData()
+    loadProjectMeta()
+    loadCharacters()
   }, [projectId])
 
   const loadData = async () => {
@@ -59,6 +68,11 @@ export default function WorldSettingsPage() {
         projectService.getProject(projectId),
         worldService.getWorldSettings(projectId)
       ])
+      
+      // マップデータを読み込み
+      const mapService = new WorldMapService(projectId)
+      const loadedMap = mapService.loadWorldMapSystem()
+      setWorldMap(loadedMap)
 
       if (!loadedProject) {
         router.push('/projects')
@@ -100,6 +114,28 @@ export default function WorldSettingsPage() {
       console.error('Failed to load data:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadProjectMeta = () => {
+    const stored = localStorage.getItem(`shinwa-project-meta-${projectId}`)
+    if (stored) {
+      try {
+        setProjectMeta(JSON.parse(stored))
+      } catch (error) {
+        console.error('Failed to load project meta:', error)
+      }
+    }
+  }
+
+  const loadCharacters = () => {
+    const stored = localStorage.getItem(`shinwa-characters-${projectId}`)
+    if (stored) {
+      try {
+        setCharacters(JSON.parse(stored))
+      } catch (error) {
+        console.error('Failed to load characters:', error)
+      }
     }
   }
 
@@ -293,6 +329,26 @@ export default function WorldSettingsPage() {
               }`}
             >
               魔法・特殊能力
+            </button>
+            <button
+              onClick={() => setActiveTab('map')}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'map'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              地図
+            </button>
+            <button
+              onClick={() => setActiveTab('travel')}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'travel'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              旅行シミュレーター
             </button>
           </div>
 
@@ -621,6 +677,149 @@ export default function WorldSettingsPage() {
                     {isSaving ? '保存中...' : '保存'}
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {/* 地図タブ */}
+            {activeTab === 'map' && (
+              <div className="space-y-4">
+                {worldMap ? (
+                  <div>
+                    {/* Map controls */}
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-lg font-medium">世界地図</h3>
+                      <Button
+                        variant="secondary"
+                        onClick={async () => {
+                          if (window.confirm('マップを再生成しますか？現在のマップデータは失われます。')) {
+                            setIsRegeneratingMap(true)
+                            try {
+                              const mapService = new WorldMapService(projectId)
+                              const newMap = await mapService.generateWorldMapSystem(
+                                worldSettings!,
+                                projectMeta?.genre || 'ファンタジー',
+                                projectMeta?.themes || []
+                              )
+                              mapService.saveWorldMapSystem(newMap)
+                              setWorldMap(newMap)
+                              alert('マップを再生成しました')
+                            } catch (error) {
+                              console.error('Failed to regenerate map:', error)
+                              alert('マップの再生成に失敗しました')
+                            } finally {
+                              setIsRegeneratingMap(false)
+                            }
+                          }
+                        }}
+                        disabled={isRegeneratingMap}
+                      >
+                        {isRegeneratingMap ? '生成中...' : 'マップを再生成'}
+                      </Button>
+                    </div>
+
+                    {/* World Map Display Component */}
+                    <WorldMapDisplay worldMapSystem={worldMap} />
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 mb-4">
+                      マップは自動生成時に作成されます
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      プロジェクトの自動生成を実行すると、世界設定に基づいてマップが生成されます
+                    </p>
+                    <div className="mt-6">
+                      <Button
+                        onClick={async () => {
+                          if (!worldSettings) {
+                            alert('世界設定を先に保存してください')
+                            return
+                          }
+                          setIsRegeneratingMap(true)
+                          try {
+                            const mapService = new WorldMapService(projectId)
+                            const newMap = await mapService.generateWorldMapSystem(
+                              worldSettings,
+                              projectMeta?.genre || 'ファンタジー',
+                              projectMeta?.themes || []
+                            )
+                            mapService.saveWorldMapSystem(newMap)
+                            setWorldMap(newMap)
+                            alert('マップを生成しました')
+                          } catch (error) {
+                            console.error('Failed to generate map:', error)
+                            alert('マップの生成に失敗しました')
+                          } finally {
+                            setIsRegeneratingMap(false)
+                          }
+                        }}
+                        disabled={isRegeneratingMap || !worldSettings}
+                      >
+                        {isRegeneratingMap ? '生成中...' : '今すぐマップを生成'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 旅行シミュレータータブ */}
+            {activeTab === 'travel' && (
+              <div className="space-y-4">
+                {worldMap && characters.length > 0 ? (
+                  <TravelSimulator
+                    worldMapSystem={worldMap}
+                    characters={characters}
+                    onTravelComplete={(characterId, locationId) => {
+                      // Store character location separately
+                      const characterLocations = JSON.parse(
+                        localStorage.getItem(`shinwa-character-locations-${projectId}`) || '{}'
+                      )
+                      characterLocations[characterId] = {
+                        locationId,
+                        updatedAt: new Date().toISOString()
+                      }
+                      localStorage.setItem(
+                        `shinwa-character-locations-${projectId}`,
+                        JSON.stringify(characterLocations)
+                      )
+                      
+                      // Show notification
+                      const character = characters.find(c => c.id === characterId)
+                      const location = [...worldMap.worldMap.locations, ...worldMap.regions.flatMap(r => r.locations)]
+                        .find(loc => loc.id === locationId)
+                      if (character && location) {
+                        alert(`${character.name}が${location.name}に到着しました`)
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="text-center py-12">
+                    {!worldMap ? (
+                      <>
+                        <p className="text-gray-500 mb-4">
+                          旅行シミュレーターを使用するには、まず地図を生成する必要があります
+                        </p>
+                        <Button
+                          onClick={() => setActiveTab('map')}
+                        >
+                          地図タブへ移動
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-gray-500 mb-4">
+                          旅行シミュレーターを使用するには、キャラクターが必要です
+                        </p>
+                        <Link href={`/projects/${projectId}/characters`}>
+                          <Button>
+                            キャラクター設定へ
+                          </Button>
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

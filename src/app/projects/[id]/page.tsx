@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Project, Chapter } from '@/lib/types'
+import { Project, Chapter, WorldMapSystem, CharacterLocation } from '@/lib/types'
 import { projectService } from '@/lib/services/project-service'
+import { WorldMapService } from '@/lib/services/world-map-service'
 import { useAppStore } from '@/lib/store'
 import Button from '@/components/ui/Button'
 import AISettings, { AISettingsData } from '@/components/settings/AISettings'
@@ -40,6 +41,10 @@ export default function ProjectDashboard() {
     limit: number;
   } | null>(null)
   const [showUsageWarning, setShowUsageWarning] = useState(false)
+  const [worldMapSystem, setWorldMapSystem] = useState<WorldMapSystem | null>(null)
+  const [characterLocations, setCharacterLocations] = useState<Record<string, CharacterLocation>>({})
+  const [worldMapService, setWorldMapService] = useState<WorldMapService | null>(null)
+  const [validationResult, setValidationResult] = useState<{ isValid: boolean; issues: string } | null>(null)
 
   const { setCurrentProject, setCurrentProvider, setApiKey } = useAppStore()
 
@@ -50,6 +55,12 @@ export default function ProjectDashboard() {
     loadChapters()
     loadProjectMeta()
     loadChapterStructure()
+    
+    // WorldMapServiceを初期化
+    const service = new WorldMapService(projectId)
+    setWorldMapService(service)
+    loadWorldMap(service)
+    loadCharacterLocations()
     
     // クリーンアップ: コンポーネントがアンマウントされる時もクリア
     return () => {
@@ -137,6 +148,75 @@ export default function ProjectDashboard() {
     } catch (error) {
       console.error('Failed to load AI usage stats:', error)
     }
+  }
+
+  const loadWorldMap = async (service: WorldMapService) => {
+    try {
+      const mapSystem = service.loadWorldMapSystem()
+      if (mapSystem) {
+        setWorldMapSystem(mapSystem)
+      }
+    } catch (error) {
+      console.error('Failed to load world map:', error)
+    }
+  }
+
+  const loadCharacterLocations = () => {
+    const stored = localStorage.getItem(`shinwa-character-location-${projectId}`)
+    if (stored) {
+      try {
+        setCharacterLocations(JSON.parse(stored))
+      } catch (error) {
+        console.error('Failed to load character locations:', error)
+      }
+    }
+  }
+
+  const getLocationName = (locationId: string): string => {
+    if (!worldMapSystem || !locationId || locationId === 'unknown') {
+      return '不明'
+    }
+
+    // 世界地図から検索
+    const worldLocation = worldMapSystem.worldMap.locations.find(loc => loc.id === locationId)
+    if (worldLocation) {
+      return worldLocation.name
+    }
+
+    // 地域地図から検索
+    for (const region of worldMapSystem.regions) {
+      const regionLocation = region.locations.find(loc => loc.id === locationId)
+      if (regionLocation) {
+        return regionLocation.name
+      }
+    }
+
+    // ローカル地図から検索
+    for (const localMap of worldMapSystem.localMaps) {
+      const localArea = localMap.areas.find(area => area.id === locationId)
+      if (localArea) {
+        return localArea.name
+      }
+    }
+
+    return '不明'
+  }
+
+  const getCharacterName = (characterId: string): string => {
+    // キャラクター情報をローカルストレージから取得
+    const stored = localStorage.getItem(`shinwa-characters-${projectId}`)
+    if (stored) {
+      try {
+        const characters = JSON.parse(stored)
+        const character = characters.find((c: any) => c.id === characterId)
+        if (character) {
+          return character.name
+        }
+      } catch (error) {
+        console.error('Failed to parse character data:', error)
+      }
+    }
+    return characterId // フォールバック
   }
 
   const handleAISettingsSave = async (settings: AISettingsData) => {
@@ -233,6 +313,9 @@ export default function ProjectDashboard() {
         project.settings.aiSettings.temperature
       )
       const engine = new FlowEngine(mainWritingFlow, executor)
+      
+      // ExecutorにEngineの参照を設定
+      executor.setFlowEngine(engine)
 
       engine.on('stepStart', (step) => {
         setExecutionLog(prev => [...prev, `実行中: ${step.name}`])
@@ -240,6 +323,11 @@ export default function ProjectDashboard() {
 
       engine.on('stepComplete', (step) => {
         setExecutionLog(prev => [...prev, `完了: ${step.name}`])
+      })
+      
+      // 詳細なログイベントをリッスン
+      engine.on('log', (message, type) => {
+        setExecutionLog(prev => [...prev, `[${type || 'info'}] ${message}`])
       })
 
       engine.on('flowComplete', (context) => {
@@ -280,6 +368,14 @@ export default function ProjectDashboard() {
           updatedAt: new Date()
         }
 
+        // 検証結果を保存
+        if (result.validationResult) {
+          setValidationResult(result.validationResult)
+          if (!result.validationResult.isValid) {
+            setExecutionLog(prev => [...prev, '⚠️ 検証で問題が見つかりました'])
+          }
+        }
+        
         // 章を一時的に保存してプレビューを表示
         setPendingChapter(newChapter)
         setShowChapterPreview(true)
@@ -525,6 +621,57 @@ export default function ProjectDashboard() {
               </dl>
             </div>
 
+            {/* キャラクター位置情報 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold mb-4">📍 キャラクター位置</h3>
+              {Object.keys(characterLocations).length > 0 ? (
+                <div className="space-y-3">
+                  {Object.entries(characterLocations).map(([charId, location]) => {
+                    const characterName = getCharacterName(charId)
+                    const locationName = getLocationName(location.currentLocation.locationId)
+                    const lastHistory = location.locationHistory[location.locationHistory.length - 1]
+                    
+                    return (
+                      <div key={charId} className="border-b border-gray-200 dark:border-gray-700 pb-2 last:border-0">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{characterName}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              現在: {locationName}
+                            </p>
+                            {lastHistory && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                第{lastHistory.arrivalChapter}章から
+                              </p>
+                            )}
+                          </div>
+                          {worldMapSystem && (
+                            <Link 
+                              href={`/projects/${projectId}/world/map?location=${location.currentLocation.locationId}`}
+                              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                            >
+                              地図で見る →
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-500">位置情報がまだ記録されていません</p>
+                  {!worldMapSystem && (
+                    <Link href={`/projects/${projectId}/world`}>
+                      <Button size="sm" variant="secondary" className="mt-2">
+                        世界地図を作成
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* AI使用状況 */}
             {aiUsageStats && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -650,6 +797,18 @@ export default function ProjectDashboard() {
               
               <div className="p-6 overflow-y-auto flex-1">
                 <div className="space-y-6">
+                  {/* 検証結果の警告 */}
+                  {validationResult && !validationResult.isValid && (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                        ⚠️ 検証で問題が見つかりました
+                      </h3>
+                      <div className="text-sm text-yellow-700 dark:text-yellow-300 whitespace-pre-wrap">
+                        {validationResult.issues}
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* 本文 */}
                   <div>
                     <h3 className="text-lg font-semibold mb-3">本文</h3>
@@ -707,6 +866,7 @@ export default function ProjectDashboard() {
                       setPendingChapter(null)
                       setShowChapterPreview(false)
                       setIsExecuting(false)
+                      setValidationResult(null)
                     }
                   }}
                 >
@@ -734,6 +894,7 @@ export default function ProjectDashboard() {
                         setShowChapterPreview(false)
                         setPendingChapter(null)
                         setIsExecuting(false)
+                        setValidationResult(null)
                         
                         // デバッグ: 編集保存後の章リストを確認
                         console.log('Saved chapters (edit):', updatedChapters)
@@ -764,6 +925,7 @@ export default function ProjectDashboard() {
                         setShowChapterPreview(false)
                         setPendingChapter(null)
                         setIsExecuting(false)
+                        setValidationResult(null)
                         setExecutionLog(prev => [...prev, '章を保存しました。'])
                         
                         // デバッグ: 保存後の章リストを確認
