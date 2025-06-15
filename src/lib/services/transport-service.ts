@@ -3,48 +3,44 @@ import { WorldSettings, TravelMethod } from '../types'
 // 時代設定に基づくデフォルトの移動手段
 const ERA_TRANSPORT_PRESETS: Record<string, TravelMethod[]> = {
   '古代': [
-    { type: 'walk', speed: 4, availability: '全キャラクター' },
-    { type: 'horse', speed: 20, availability: '騎馬可能なキャラクター' },
-    { type: 'carriage', speed: 10, availability: '馬車所有時' },
-    { type: 'ship', speed: 15, availability: '海路・河川' }
+    { type: 'walk', speed: 4, availability: 'common' },
+    { type: 'horse', speed: 20, availability: 'common' },
+    { type: 'carriage', speed: 10, availability: 'uncommon' },
+    { type: 'ship', speed: 15, availability: 'common' }
   ],
   '中世': [
-    { type: 'walk', speed: 4, availability: '全キャラクター' },
-    { type: 'horse', speed: 20, availability: '騎馬可能なキャラクター' },
-    { type: 'carriage', speed: 10, availability: '馬車所有時' },
-    { type: 'ship', speed: 15, availability: '海路・河川' },
-    { type: 'wagon', speed: 8, availability: '商人・旅人' }
+    { type: 'walk', speed: 4, availability: 'common' },
+    { type: 'horse', speed: 20, availability: 'common' },
+    { type: 'carriage', speed: 10, availability: 'uncommon' },
+    { type: 'ship', speed: 15, availability: 'common' }
   ],
   '近世': [
-    { type: 'walk', speed: 4, availability: '全キャラクター' },
-    { type: 'horse', speed: 20, availability: '騎馬可能なキャラクター' },
-    { type: 'carriage', speed: 12, availability: '馬車所有時' },
-    { type: 'ship', speed: 20, availability: '海路・河川' },
-    { type: 'train', speed: 60, availability: '鉄道路線' }
+    { type: 'walk', speed: 4, availability: 'common' },
+    { type: 'horse', speed: 20, availability: 'common' },
+    { type: 'carriage', speed: 12, availability: 'uncommon' },
+    { type: 'ship', speed: 20, availability: 'common' }
   ],
   '現代': [
-    { type: 'walk', speed: 4, availability: '全キャラクター' },
-    { type: 'bicycle', speed: 15, availability: '自転車所有時' },
-    { type: 'car', speed: 80, availability: '自動車所有時' },
-    { type: 'train', speed: 120, availability: '鉄道路線' },
-    { type: 'airplane', speed: 800, availability: '空港間' },
-    { type: 'ship', speed: 40, availability: '海路' }
+    { type: 'walk', speed: 4, availability: 'common' },
+    { type: 'horse', speed: 15, availability: 'uncommon' },
+    { type: 'carriage', speed: 80, availability: 'common' },
+    { type: 'ship', speed: 40, availability: 'common' },
+    { type: 'flight', speed: 800, availability: 'uncommon' }
   ],
   '近未来': [
-    { type: 'walk', speed: 4, availability: '全キャラクター' },
-    { type: 'bicycle', speed: 15, availability: '自転車所有時' },
-    { type: 'car', speed: 100, availability: '自動車所有時' },
-    { type: 'maglev', speed: 500, availability: '磁気浮上鉄道' },
-    { type: 'airplane', speed: 1000, availability: '空港間' },
-    { type: 'hyperloop', speed: 1200, availability: 'ハイパーループ路線' }
+    { type: 'walk', speed: 4, availability: 'common' },
+    { type: 'carriage', speed: 100, availability: 'common' },
+    { type: 'ship', speed: 50, availability: 'common' },
+    { type: 'flight', speed: 1000, availability: 'uncommon' },
+    { type: 'teleport', speed: 9999, availability: 'rare' }
   ],
   'ファンタジー': [
-    { type: 'walk', speed: 4, availability: '全キャラクター' },
-    { type: 'horse', speed: 20, availability: '騎馬可能なキャラクター' },
-    { type: 'carriage', speed: 10, availability: '馬車所有時' },
-    { type: 'ship', speed: 15, availability: '海路・河川' },
-    { type: 'flight', speed: 50, availability: '飛行魔法・飛竜' },
-    { type: 'teleport', speed: 9999, availability: '転移魔法' }
+    { type: 'walk', speed: 4, availability: 'common' },
+    { type: 'horse', speed: 20, availability: 'common' },
+    { type: 'carriage', speed: 10, availability: 'uncommon' },
+    { type: 'ship', speed: 15, availability: 'common' },
+    { type: 'flight', speed: 50, availability: 'rare' },
+    { type: 'teleport', speed: 9999, availability: 'rare' }
   ]
 }
 

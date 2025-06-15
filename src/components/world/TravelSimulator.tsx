@@ -71,10 +71,10 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
     
     // デフォルトの移動手段を定義
     const defaultMethods: TravelMethod[] = [
-      { type: 'walk', speed: 4, availability: '全時代' },
-      { type: 'horse', speed: 20, availability: '中世以降' },
-      { type: 'carriage', speed: 10, availability: '中世以降' },
-      { type: 'ship', speed: 15, availability: '全時代（海路のみ）' }
+      { type: 'walk', speed: 4, availability: 'common' },
+      { type: 'horse', speed: 20, availability: 'common' },
+      { type: 'carriage', speed: 10, availability: 'uncommon' },
+      { type: 'ship', speed: 15, availability: 'common' }
     ]
     
     const methods: TravelMethod[] = []
@@ -375,7 +375,10 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
                    method.type === 'airplane' ? '飛行機' :
                    method.type === 'bicycle' ? '自転車' :
                    method.type} 
-                  ({method.speed} km/h) - {method.availability}
+                  ({method.speed} km/h) - {method.availability === 'common' ? '一般的' : 
+                                          method.availability === 'uncommon' ? 'やや珍しい' : 
+                                          method.availability === 'rare' ? '珍しい' : 
+                                          method.availability}
                 </option>
               ))}
             </select>
