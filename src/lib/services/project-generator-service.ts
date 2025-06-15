@@ -584,25 +584,28 @@ ${JSON.stringify(characterList, null, 2)}
     const characterLocations: Record<string, CharacterLocation> = {}
     const worldMap = worldMapSystem.worldMap
 
-    // 場所を種類別に分類
+    // 世界地図の場所を種類別に分類
     const capitals = worldMap.locations.filter(loc => loc.type === 'capital')
     const majorCities = worldMap.locations.filter(loc => loc.type === 'major_city')
-    const towns = worldMap.locations.filter(loc => loc.type === 'town')
-    const sacredSites = worldMap.locations.filter(loc => 
-      loc.type === 'sacred_site' || 
-      (loc.description && (loc.description.includes('聖地') || loc.description.includes('神殿') || loc.description.includes('学院')))
+    
+    // 地域地図からの場所を収集
+    const regionalLocations = worldMapSystem.regions.flatMap(region => region.locations)
+    const towns = regionalLocations.filter(loc => loc.type === 'town')
+    const villages = regionalLocations.filter(loc => loc.type === 'village')
+    const sacredSites = regionalLocations.filter(loc => 
+      loc.description && (loc.description.includes('聖地') || loc.description.includes('神殿') || loc.description.includes('学院'))
     )
-    const fortresses = worldMap.locations.filter(loc => 
-      loc.type === 'fortress' || 
-      (loc.description && (loc.description.includes('要塞') || loc.description.includes('城')))
+    const fortresses = regionalLocations.filter(loc => 
+      loc.description && (loc.description.includes('要塞') || loc.description.includes('城'))
     )
-    const villages = worldMap.locations.filter(loc => loc.type === 'village')
 
     // すべての場所のリスト（優先度順）
-    const allLocations = [...capitals, ...majorCities, ...towns, ...sacredSites, ...fortresses, ...villages]
+    const allWorldLocations = [...capitals, ...majorCities]
+    const allRegionalLocations = [...towns, ...sacredSites, ...fortresses, ...villages]
 
     characters.forEach(character => {
       let assignedLocation: string | null = null
+      let mapLevel: 'world' | 'region' = 'world'
 
       // 役割に基づいて適切な場所を選択
       switch (character.role) {
@@ -612,8 +615,11 @@ ${JSON.stringify(characterList, null, 2)}
             assignedLocation = capitals[0].id
           } else if (majorCities.length > 0) {
             assignedLocation = majorCities[0].id
-          } else if (allLocations.length > 0) {
-            assignedLocation = allLocations[0].id
+          } else if (allWorldLocations.length > 0) {
+            assignedLocation = allWorldLocations[0].id
+          } else if (allRegionalLocations.length > 0) {
+            assignedLocation = allRegionalLocations[0].id
+            mapLevel = 'region'
           }
           break
 
@@ -621,11 +627,16 @@ ${JSON.stringify(characterList, null, 2)}
           // メンターは聖地、学術都市、または離れた場所に配置
           if (sacredSites.length > 0) {
             assignedLocation = sacredSites[Math.floor(Math.random() * sacredSites.length)].id
+            mapLevel = 'region'
           } else if (towns.length > 0) {
             assignedLocation = towns[Math.floor(Math.random() * towns.length)].id
-          } else if (allLocations.length > 1) {
+            mapLevel = 'region'
+          } else if (allWorldLocations.length > 1) {
             // 主人公とは別の場所に
-            assignedLocation = allLocations[1].id
+            assignedLocation = allWorldLocations[1].id
+          } else if (allRegionalLocations.length > 0) {
+            assignedLocation = allRegionalLocations[0].id
+            mapLevel = 'region'
           }
           break
 
@@ -633,18 +644,22 @@ ${JSON.stringify(characterList, null, 2)}
           // 敵対者は要塞、辺境、または主人公から離れた場所に配置
           if (fortresses.length > 0) {
             assignedLocation = fortresses[Math.floor(Math.random() * fortresses.length)].id
+            mapLevel = 'region'
           } else if (villages.length > 0) {
             // 辺境の村
             assignedLocation = villages[villages.length - 1].id
-          } else if (allLocations.length > 2) {
+            mapLevel = 'region'
+          } else if (allWorldLocations.length > 2) {
             // できるだけ離れた場所
-            assignedLocation = allLocations[allLocations.length - 1].id
+            assignedLocation = allWorldLocations[allWorldLocations.length - 1].id
+          } else if (allRegionalLocations.length > 0) {
+            assignedLocation = allRegionalLocations[allRegionalLocations.length - 1].id
+            mapLevel = 'region'
           }
           break
 
-        case 'sidekick':
         case 'supporting':
-          // 仲間は主人公と同じか近くの場所、または様々な場所に分散
+                  // 仲間は主人公と同じか近くの場所、または様々な場所に分散
           const randomChoice = Math.random()
           if (randomChoice < 0.3 && capitals.length > 0) {
             // 30%の確率で首都
@@ -655,9 +670,13 @@ ${JSON.stringify(characterList, null, 2)}
           } else if (towns.length > 0) {
             // それ以外は町
             assignedLocation = towns[Math.floor(Math.random() * towns.length)].id
-          } else if (allLocations.length > 0) {
+            mapLevel = 'region'
+          } else if (allWorldLocations.length > 0) {
             // ランダムな場所
-            assignedLocation = allLocations[Math.floor(Math.random() * allLocations.length)].id
+            assignedLocation = allWorldLocations[Math.floor(Math.random() * allWorldLocations.length)].id
+          } else if (allRegionalLocations.length > 0) {
+            assignedLocation = allRegionalLocations[Math.floor(Math.random() * allRegionalLocations.length)].id
+            mapLevel = 'region'
           }
           break
 
@@ -667,8 +686,11 @@ ${JSON.stringify(characterList, null, 2)}
             assignedLocation = capitals[0].id
           } else if (majorCities.length > 0) {
             assignedLocation = majorCities[0].id
-          } else if (allLocations.length > 0) {
-            assignedLocation = allLocations[0].id
+          } else if (allWorldLocations.length > 0) {
+            assignedLocation = allWorldLocations[0].id
+          } else if (allRegionalLocations.length > 0) {
+            assignedLocation = allRegionalLocations[0].id
+            mapLevel = 'region'
           }
           break
 
@@ -678,15 +700,21 @@ ${JSON.stringify(characterList, null, 2)}
             assignedLocation = majorCities[1].id
           } else if (capitals.length > 0 && majorCities.length > 0) {
             assignedLocation = majorCities[0].id
-          } else if (allLocations.length > 1) {
-            assignedLocation = allLocations[1].id
+          } else if (allWorldLocations.length > 1) {
+            assignedLocation = allWorldLocations[1].id
+          } else if (allRegionalLocations.length > 0) {
+            assignedLocation = allRegionalLocations[0].id
+            mapLevel = 'region'
           }
           break
 
         default:
           // その他のキャラクターはランダムに配置
-          if (allLocations.length > 0) {
-            assignedLocation = allLocations[Math.floor(Math.random() * allLocations.length)].id
+          if (allWorldLocations.length > 0) {
+            assignedLocation = allWorldLocations[Math.floor(Math.random() * allWorldLocations.length)].id
+          } else if (allRegionalLocations.length > 0) {
+            assignedLocation = allRegionalLocations[Math.floor(Math.random() * allRegionalLocations.length)].id
+            mapLevel = 'region'
           }
       }
 
@@ -695,7 +723,7 @@ ${JSON.stringify(characterList, null, 2)}
         characterLocations[character.id] = {
           characterId: character.id,
           currentLocation: {
-            mapLevel: 'world',
+            mapLevel: mapLevel,
             locationId: assignedLocation
           },
           locationHistory: [
@@ -775,13 +803,12 @@ ${JSON.stringify(characterList, null, 2)}
         const worldMap = content.worldMapSystem.worldMap
         const capitals = worldMap.locations.filter(loc => loc.type === 'capital')
         const majorCities = worldMap.locations.filter(loc => loc.type === 'major_city')
-        const sacredSites = worldMap.locations.filter(loc => 
-          loc.type === 'sacred_site' || 
-          (loc.description && (loc.description.includes('聖地') || loc.description.includes('神殿') || loc.description.includes('学院')))
+        const regionalLocations = content.worldMapSystem.regions.flatMap(region => region.locations)
+        const sacredSites = regionalLocations.filter(loc => 
+          loc.description && (loc.description.includes('聖地') || loc.description.includes('神殿') || loc.description.includes('学院'))
         )
-        const fortresses = worldMap.locations.filter(loc => 
-          loc.type === 'fortress' || 
-          (loc.description && (loc.description.includes('要塞') || loc.description.includes('城')))
+        const fortresses = regionalLocations.filter(loc => 
+          loc.description && (loc.description.includes('要塞') || loc.description.includes('城'))
         )
         
         switch (char.role) {

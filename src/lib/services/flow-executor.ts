@@ -220,7 +220,7 @@ export class NovelFlowExecutor implements FlowExecutor {
           category: this.categorizeRuleViolation(violation.rule),
           severity: violation.severity as 'error' | 'warning' | 'info',
           title: violation.rule,
-          description: violation.message,
+          description: violation.description,
           suggestion: violation.suggestion
         })
       })
@@ -279,7 +279,7 @@ export class NovelFlowExecutor implements FlowExecutor {
     
     // 移動の警告を追加
     const travelWarnings = context.travelWarnings || []
-    travelWarnings.forEach(warning => {
+    travelWarnings.forEach((warning: string) => {
       issues.push({
         id: generateId(),
         category: 'travel',

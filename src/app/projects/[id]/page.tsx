@@ -562,7 +562,7 @@ ${pendingChapter.content}
                   AI設定
                 </Button>
                 <Button
-                  onClick={handleExecuteFlow}
+                  onClick={() => handleExecuteFlow()}
                   disabled={isExecuting || (!!aiUsageStats && !aiUsageStats.isUnlimited && aiUsageStats.remaining === 0)}
                 >
                   {isExecuting ? '執筆中...' : 
