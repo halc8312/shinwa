@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Project, Chapter, WorldMapSystem, CharacterLocation, ValidationResult, ValidationIssue } from '@/lib/types'
+import { Project, Chapter, Character, WorldMapSystem, CharacterLocation, ValidationResult, ValidationIssue } from '@/lib/types'
 import { projectService } from '@/lib/services/project-service'
 import { WorldMapService } from '@/lib/services/world-map-service'
 import { useAppStore } from '@/lib/store'
