@@ -461,3 +461,150 @@ export interface TimeAdvancement {
   newTime: string
   significantEvents: string[]
 }
+
+// マップシステムの型定義
+export interface WorldMapSystem {
+  worldMap: WorldMap
+  regions: RegionMap[]
+  localMaps: LocalMap[]
+  connections: MapConnection[]
+  travelTimes: TravelTime[]
+}
+
+export interface WorldMap {
+  id: string
+  name: string
+  description: string
+  scale: 'world' | 'continent' | 'country'
+  locations: WorldLocation[]
+  geography: GeographicalFeature[]
+}
+
+export interface WorldLocation {
+  id: string
+  name: string
+  type: 'continent' | 'country' | 'capital' | 'major_city' | 'landmark'
+  coordinates: {
+    x: number  // 相対座標 (0-100)
+    y: number  // 相対座標 (0-100)
+  }
+  description: string
+  population?: number
+  climate?: string
+  culturalAffiliation?: string
+}
+
+export interface RegionMap {
+  id: string
+  parentLocationId: string  // WorldLocationのID
+  name: string
+  description: string
+  scale: 'region' | 'province' | 'city'
+  locations: RegionalLocation[]
+  terrain: TerrainFeature[]
+}
+
+export interface RegionalLocation {
+  id: string
+  name: string
+  type: 'city' | 'town' | 'village' | 'landmark' | 'dungeon' | 'wilderness'
+  coordinates: {
+    x: number
+    y: number
+  }
+  description: string
+  population?: number
+  importance: 'major' | 'moderate' | 'minor'
+  services: string[]  // 宿屋、商店、神殿など
+}
+
+export interface LocalMap {
+  id: string
+  parentLocationId: string  // RegionalLocationのID
+  name: string
+  description: string
+  scale: 'building' | 'district' | 'compound'
+  areas: LocalArea[]
+}
+
+export interface LocalArea {
+  id: string
+  name: string
+  type: 'room' | 'street' | 'floor' | 'courtyard' | 'hall'
+  description: string
+  features: string[]
+  connectedTo: string[]  // 他のLocalAreaのID
+}
+
+export interface MapConnection {
+  id: string
+  fromLocationId: string
+  toLocationId: string
+  bidirectional: boolean
+  connectionType: 'road' | 'path' | 'river' | 'sea_route' | 'air_route' | 'magical'
+  difficulty: 'easy' | 'moderate' | 'difficult' | 'dangerous'
+  description?: string
+}
+
+export interface TravelTime {
+  connectionId: string
+  travelMethod: TravelMethod
+  baseTime: number  // 分単位
+  conditions: TravelCondition[]
+}
+
+export interface TravelMethod {
+  type: 'walk' | 'horse' | 'carriage' | 'ship' | 'flight' | 'teleport'
+  speed: number  // km/h
+  availability: 'common' | 'uncommon' | 'rare'
+  requirements?: string[]
+}
+
+export interface TravelCondition {
+  type: 'weather' | 'season' | 'political' | 'magical'
+  description: string
+  timeModifier: number  // 1.0 = 通常、2.0 = 2倍の時間
+}
+
+export interface GeographicalFeature {
+  type: 'mountain' | 'river' | 'forest' | 'desert' | 'ocean' | 'plain'
+  name: string
+  description: string
+  area: {
+    topLeft: { x: number; y: number }
+    bottomRight: { x: number; y: number }
+  }
+}
+
+export interface TerrainFeature {
+  type: 'hill' | 'valley' | 'lake' | 'road' | 'bridge' | 'ruin'
+  name: string
+  description: string
+  position: { x: number; y: number }
+}
+
+// キャラクター位置追跡の拡張
+export interface CharacterLocation {
+  characterId: string
+  currentLocation: {
+    mapLevel: 'world' | 'region' | 'local'
+    locationId: string
+    specificArea?: string  // LocalAreaのID（該当する場合）
+  }
+  travelStatus?: {
+    isTraveling: boolean
+    fromLocationId: string
+    toLocationId: string
+    departureTime: string
+    estimatedArrivalTime: string
+    travelMethod: string
+  }
+  locationHistory: LocationHistoryEntry[]
+}
+
+export interface LocationHistoryEntry {
+  locationId: string
+  arrivalChapter: number
+  departureChapter?: number
+  significantEvents: string[]
+}
