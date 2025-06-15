@@ -676,6 +676,9 @@ export class WorldMapService {
    * 記述的な場所名かどうかを判定
    */
   private isDescriptiveLocation(location: string): boolean {
+    // 文字列を正規化（全角・半角スペースの統一、前後の空白除去）
+    const normalizedLocation = location.trim().replace(/\s+/g, ' ')
+    
     const descriptivePatterns = [
       /火を囲んで/,
       /焚火/,
@@ -704,7 +707,20 @@ export class WorldMapService {
       /いる場所/
     ]
     
-    return descriptivePatterns.some(pattern => pattern.test(location))
+    const isDescriptive = descriptivePatterns.some(pattern => pattern.test(normalizedLocation))
+    
+    // デバッグログ（元の文字列と正規化後の文字列を表示）
+    console.log(`[isDescriptiveLocation] Original: "${location}" (length: ${location.length})`)
+    console.log(`[isDescriptiveLocation] Normalized: "${normalizedLocation}" (length: ${normalizedLocation.length})`)
+    console.log(`[isDescriptiveLocation] Result: ${isDescriptive ? 'TRUE (is descriptive)' : 'FALSE (not descriptive)'}`)
+    
+    // マッチしたパターンも表示
+    if (isDescriptive) {
+      const matchedPatterns = descriptivePatterns.filter(pattern => pattern.test(normalizedLocation))
+      console.log(`[isDescriptiveLocation] Matched patterns: ${matchedPatterns.map(p => p.toString()).join(', ')}`)
+    }
+    
+    return isDescriptive
   }
 
   /**
@@ -853,8 +869,11 @@ export class WorldMapService {
 
     // 場所が見つからない場合の処理
     if (!fromLocationData && fromLocation !== '不明') {
+      console.log(`[validateTravel] From location "${fromLocation}" not found in map for ${characterName}`)
+      
       // 記述的な場所名の場合は警告レベルを下げる
       if (this.isDescriptiveLocation(fromLocation)) {
+        console.log(`[validateTravel] "${fromLocation}" is descriptive, returning info level`)
         return {
           isValid: true,
           message: `${characterName}の移動元「${fromLocation}」は一般的な記述です。物語の文脈では問題ありませんが、具体的な地名の使用を推奨します。`,
@@ -862,6 +881,7 @@ export class WorldMapService {
         }
       }
       
+      console.log(`[validateTravel] "${fromLocation}" is NOT descriptive, returning error`)
       // 類似する場所名を提案
       const suggestions = this.getSimilarLocations(fromLocation, worldMapSystem)
       const suggestionText = suggestions.length > 0 

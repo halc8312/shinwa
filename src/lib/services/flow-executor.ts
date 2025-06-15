@@ -1104,6 +1104,7 @@ ${JSON.stringify(context.previousChapters, null, 2)}
     warnings: string[]
   }> {
     const movements = await this.extractCharacterMovements(chapterContent, context)
+    console.log('[validateCharacterMovements] Extracted movements:', movements)
     const warnings: string[] = []
 
     // 世界地図システムを読み込む
@@ -1122,6 +1123,12 @@ ${JSON.stringify(context.previousChapters, null, 2)}
         context.chapterNumber || 1
       )
 
+      console.log(`[validateCharacterMovements] Validation result for ${movement.characterName}:`, {
+        isValid: validationResult.isValid,
+        severity: validationResult.severity,
+        message: validationResult.message
+      })
+      
       if (!validationResult.isValid) {
         warnings.push(validationResult.message)
         this.flowEngine?.log(
