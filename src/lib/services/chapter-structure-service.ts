@@ -258,20 +258,21 @@ ${this.getForeshadowingGuidelines(chapterCount || 10)}
     chapterCount: number
   ): AIModelSettings[keyof AIModelSettings] {
     // 章数に応じてトークン制限を調整
+    // 各章に必要な詳細情報を考慮して、より適切なトークン数を設定
     let maxTokens = baseSettings.maxTokens
     let temperature = baseSettings.temperature
     
     if (chapterCount <= 3) {
-      // 短編：デフォルト設定のまま
-      maxTokens = 2000
+      // 短編：少ない章数でも詳細な情報を生成できるよう十分なトークンを確保
+      maxTokens = 3000  // 2000から増加
       temperature = 0.7
     } else if (chapterCount <= 10) {
-      // 中編：トークンを増やす
-      maxTokens = 3500
+      // 中編：章数に応じて適切なトークン数を設定
+      maxTokens = 4500  // 3500から増加
       temperature = 0.7
     } else if (chapterCount <= 20) {
       // 長編：さらにトークンを増やす
-      maxTokens = 5000
+      maxTokens = 6000  // 5000から増加
       temperature = 0.7
     } else {
       // 超長編：最大限のトークンを使用
@@ -379,7 +380,18 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
 上記の情報を基に、${chapterCount}章の詳細な章立てを作成してください。
 キャラクターの成長や関係性の変化、世界観の深化、伏線の計画的な配置を考慮してください。
 
-各章について、以下の形式のJSON配列で出力してください：
+${this.getResponseFormatInstructions(chapterCount)}
+`
+    return prompt
+  }
+
+  /**
+   * 章数に応じたレスポンスフォーマット指示の生成
+   */
+  private getResponseFormatInstructions(chapterCount: number): string {
+    // 章数が少ない場合は詳細な情報を求める
+    if (chapterCount <= 5) {
+      return `各章について、以下の形式のJSON配列で出力してください：
 
 \`\`\`json
 [
@@ -414,9 +426,75 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
 - titleフィールドには「第X章」ではなく、内容を表す具体的なタイトルを入れてください
 - charactersInvolvedには、上記で示したキャラクターIDを使用してください
 - 伏線は物語全体のバランスを考えて配置してください
-- 短期伏線は頻繁に、長期伏線は慎重に設置してください
-`
-    return prompt
+- 短期伏線は頻繁に、長期伏線は慎重に設置してください`
+    } else if (chapterCount <= 10) {
+      // 中編の場合はバランスを重視
+      return `各章について、以下の形式のJSON配列で出力してください：
+
+\`\`\`json
+[
+  {
+    "number": 1,
+    "title": "具体的な章タイトル",
+    "purpose": "この章の目的",
+    "keyEvents": ["主要イベント1", "主要イベント2", "主要イベント3"],
+    "conflict": "中心的な葛藤",
+    "resolution": "章の結末",
+    "hook": "次章への引き",
+    "tensionLevel": 5,
+    "charactersInvolved": ["キャラクターID"],
+    "location": "主要な場所",
+    "time": "時間設定",
+    "foreshadowingToPlant": [
+      {
+        "hint": "伏線の内容",
+        "scope": "short/medium/long",
+        "significance": "minor/moderate/major",
+        "plannedRevealChapter": 回収予定章
+      }
+    ],
+    "foreshadowingToReveal": ["回収する伏線"]
+  }
+]
+\`\`\`
+
+重要：
+- 各章が物語全体における役割を明確にしてください
+- テンションの緩急を意識して構成してください
+- 伏線はバランスよく配置してください`
+    } else {
+      // 長編の場合は効率的な情報提供を求める
+      return `各章について、以下の形式のJSON配列で出力してください：
+
+\`\`\`json
+[
+  {
+    "number": 1,
+    "title": "章タイトル",
+    "purpose": "章の目的（簡潔に）",
+    "keyEvents": ["イベント1", "イベント2"],
+    "conflict": "主要な葛藤",
+    "hook": "次章への引き",
+    "tensionLevel": 5,
+    "charactersInvolved": ["キャラID"],
+    "location": "場所",
+    "time": "時間",
+    "foreshadowingToPlant": [
+      {
+        "hint": "重要な伏線のみ",
+        "scope": "medium/long",
+        "plannedRevealChapter": 回収章
+      }
+    ]
+  }
+]
+\`\`\`
+
+重要：
+- 長編の全体構成を意識してください
+- 各幕の役割を明確にしてください
+- 重要な伏線のみを記載してください`
+    }
   }
 
   /**
@@ -666,93 +744,110 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
         }
       } else if (params.structureType === 'four-act') {
         if (actIndex === 0) { // 起
-          tensionLevel = 2 + Math.floor((chapterNum - 1) * 2)
+          const actProgress = (chapterNum - act!.startChapter) / (act!.endChapter - act!.startChapter + 1)
+          tensionLevel = 2 + Math.floor(actProgress * 3)
           purpose = `${worldName}の日常風景と登場人物の紹介`
           keyEvents = [
             '物語世界の日常描写',
             mainCharacters[0] ? `${mainCharacters[0].name}の生活` : '主人公の生活',
-            '変化の予兆'
+            '変化の予兆',
+            '最初の違和感'
           ]
           conflict = '平穏な日常に潜む違和感'
           resolution = '日常の中での小さな変化'
           hook = '何かが始まる予感'
         } else if (actIndex === 1) { // 承
-          tensionLevel = 4 + Math.floor((chapterNum - act!.startChapter) * 1.5)
+          const actProgress = (chapterNum - act!.startChapter) / (act!.endChapter - act!.startChapter + 1)
+          tensionLevel = 4 + Math.floor(actProgress * 2)
           purpose = '事件が動き始め、物語が本格的に展開する'
           keyEvents = [
             '事件の発生と展開',
-            '人間関係の深化',
-            '問題の複雑化'
+            mainCharacters.length > 1 ? `${mainCharacters[1].name}との関係深化` : '人間関係の深化',
+            '問題の複雑化',
+            '新たな謎の出現'
           ]
           conflict = '予想外の展開と新たな問題'
           resolution = '一時的な解決と新たな謎'
           hook = 'より深い真実への手がかり'
         } else if (actIndex === 2) { // 転
-          tensionLevel = 7 + Math.floor((chapterNum - act!.startChapter) * 1)
+          const actProgress = (chapterNum - act!.startChapter) / (act!.endChapter - act!.startChapter + 1)
+          tensionLevel = 7 + Math.floor(actProgress * 2)
           purpose = '物語の転換点、最も劇的な展開'
           keyEvents = [
             '衝撃的な真実の発覚',
-            '最大の危機',
-            '決断の時'
+            '最大の危機の到来',
+            mainCharacters[0] ? `${mainCharacters[0].name}の決断` : '主人公の決断',
+            '全てが変わる瞬間'
           ]
           conflict = '全てを失う危機'
           resolution = '覚悟と決意'
           hook = '最終決戦への道'
         } else { // 結
-          tensionLevel = Math.max(3, 8 - Math.floor((chapterNum - act!.startChapter) * 2))
+          const actProgress = (chapterNum - act!.startChapter) / (act!.endChapter - act!.startChapter + 1)
+          tensionLevel = Math.max(3, 9 - Math.floor(actProgress * 3))
           purpose = '全ての結末と新たな始まり'
           keyEvents = [
-            '最終対決',
+            '最終対決の準備',
+            '伏線の回収',
             '問題の解決',
             '新たな日常への回帰'
           ]
           conflict = '最後の障害'
-          resolution = '大団円'
+          resolution = '大団円へ向けて'
           hook = chapterNum === chapterCount ? '' : 'エピローグへの架橋'
         }
       } else if (params.structureType === 'hero-journey') {
         const totalProgress = (chapterNum - 1) / (chapterCount - 1)
+        const actProgress = (chapterNum - act!.startChapter) / (act!.endChapter - act!.startChapter + 1)
         tensionLevel = Math.floor(3 + totalProgress * 5 + Math.sin(totalProgress * Math.PI) * 2)
         
         if (actIndex === 0) { // 出発
-          purpose = '日常世界から冒険への旅立ち'
+          purpose = mainCharacters[0] 
+            ? `${mainCharacters[0].name}の日常世界から冒険への旅立ち`
+            : '日常世界から冒険への旅立ち'
           keyEvents = [
-            '日常世界での主人公',
-            '冒険への誘い',
-            '師との出会い'
+            '日常世界での主人公の描写',
+            '冒険への誘いと拒絶',
+            '賢者との出会い',
+            '第一の敷居の通過'
           ]
-          conflict = '冒険への躊躇'
-          resolution = '第一関門の突破'
-          hook = '未知の世界への扉'
+          conflict = '冒険への躊躇と恐れ'
+          resolution = '運命を受け入れる決意'
+          hook = '未知の世界への扉が開く'
         } else if (actIndex === 1) { // 試練
           purpose = '未知の世界での試練と成長'
           keyEvents = [
-            '仲間との出会い',
-            '数々の試練',
+            mainCharacters.length > 1 ? `${mainCharacters[1].name}との出会い` : '仲間との出会い',
+            '敵対者との対峙',
+            '数々の試練と成長',
             '最も深い洞窟への接近'
           ]
           conflict = '最大の恐怖との対峙'
-          resolution = '報酬の獲得'
-          hook = '帰還への道'
+          resolution = '内なる力の発見'
+          hook = '最大の試練が待ち受ける'
         } else if (actIndex === 2) { // 帰還
-          purpose = '変化した主人公の帰還'
+          purpose = mainCharacters[0]
+            ? `変化した${mainCharacters[0].name}の帰還`
+            : '変化した主人公の帰還'
           keyEvents = [
-            '帰路での追跡',
+            '報酬を手にしての帰路',
+            '追跡者からの逃走',
             '復活と最終試練',
-            '霊薬を持っての帰還'
+            '二つの世界の橋渡し'
           ]
           conflict = '二つの世界の間での葛藤'
-          resolution = '両世界の調和'
+          resolution = '両世界の調和と統合'
           hook = '新たな冒険の可能性'
         } else { // 再生
           purpose = '変容を遂げた主人公の新たな生活'
           keyEvents = [
-            '日常世界の変化',
-            '主人公の新たな役割',
+            '日常世界の新たな見方',
+            mainCharacters[0] ? `${mainCharacters[0].name}の新たな役割` : '主人公の新たな役割',
+            '得た知恵の共有',
             '物語の意味の結実'
           ]
           conflict = '新旧の価値観の統合'
-          resolution = '完全なる変容'
+          resolution = '完全なる変容と新生'
           hook = ''
         }
       } else { // custom or default
