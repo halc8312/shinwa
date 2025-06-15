@@ -713,13 +713,11 @@ ${pendingChapter.content}
                    aiUsageStats && !aiUsageStats.isUnlimited && aiUsageStats.remaining === 0 ? '使用制限に達しました' :
                    `第${chapters.length > 0 ? Math.max(...chapters.map(ch => ch.number)) + 1 : 1}章を執筆${aiUsageStats && !aiUsageStats.isUnlimited ? ` (残り${aiUsageStats.remaining}回)` : ''}`}
                 </Button>
-                {chapterStructure && (
-                  <Link href={`/projects/${projectId}/setup-chapters`}>
-                    <Button variant="secondary">
-                      📚 章立てを編集
-                    </Button>
-                  </Link>
-                )}
+                <Link href={`/projects/${projectId}/setup-chapters`}>
+                  <Button variant="secondary">
+                    📚 {chapterStructure ? '章立てを編集' : '章立てを作成'}
+                  </Button>
+                </Link>
               </div>
 
               {executionLog.length > 0 && (
