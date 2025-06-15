@@ -95,8 +95,7 @@ export class WorldMapService {
 世界名: ${worldSettings.name}
 時代: ${worldSettings.era}
 説明: ${worldSettings.description || 'なし'}
-地理: ${worldSettings.geography || '特に指定なし'}
-気候: ${worldSettings.climate || '温帯'}
+地理: ${worldSettings.geography?.join('、') || '特に指定なし'}
 
 【ジャンル】${genre}
 【テーマ】${themes.join('、')}
@@ -522,7 +521,7 @@ export class WorldMapService {
           coordinates: { x: 50, y: 50 },
           description: 'この世界の中心となる大都市',
           population: 100000,
-          climate: worldSettings.climate || '温帯',
+          climate: '温帯',
           culturalAffiliation: '中央文化圏'
         }
       ],
