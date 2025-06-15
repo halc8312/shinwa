@@ -804,7 +804,7 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
     return {
       totalChapters: chapterCount,
       structure: {
-        type: structureType,
+        type: params.structureType,
         acts
       },
       chapters,
