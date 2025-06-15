@@ -279,7 +279,7 @@ export default function ProjectDashboard() {
         chapterNumber: pendingChapter?.number || 1,
         chapterContent: content,
         rules: project!.settings.writingRules,
-        worldSettings: worldSettings || undefined,
+        worldSettings: undefined,
         characters: characters || []
       }
       
