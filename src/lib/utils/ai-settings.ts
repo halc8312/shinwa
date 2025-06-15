@@ -56,6 +56,66 @@ export function getProjectModelSettings(projectId: string): AIModelSettings {
       console.error('Failed to parse AI model settings:', error)
     }
   }
+  
+  // プロジェクトの基本設定からモデルを取得
+  const projectStored = localStorage.getItem(`shinwa-project-${projectId}`)
+  if (projectStored) {
+    try {
+      const project = JSON.parse(projectStored)
+      if (project.settings?.aiSettings?.model) {
+        // 基本AI設定のモデルを各機能のデフォルトとして使用
+        const baseModel = project.settings.aiSettings.model
+        const baseTemperature = project.settings.aiSettings.temperature || 0.7
+        const baseMaxTokens = project.settings.aiSettings.maxTokens || 4000
+        
+        return {
+          defaultModel: {
+            model: baseModel,
+            temperature: baseTemperature,
+            maxTokens: baseMaxTokens
+          },
+          chapterWriting: {
+            model: baseModel,  // 基本設定のモデルを使用
+            temperature: 0.8,
+            maxTokens: 5000
+          },
+          chapterPlanning: {
+            model: baseModel,
+            temperature: 0.5,
+            maxTokens: 2000
+          },
+          backgroundEvents: {
+            model: baseModel,
+            temperature: 0.3,
+            maxTokens: 1000
+          },
+          summarization: {
+            model: baseModel,
+            temperature: 0.3,
+            maxTokens: 500
+          },
+          characterAnalysis: {
+            model: baseModel,
+            temperature: 0.5,
+            maxTokens: 2000
+          },
+          validation: {
+            model: baseModel,
+            temperature: 0.3,
+            maxTokens: 1000
+          },
+          assistant: {
+            model: baseModel,
+            temperature: 0.7,
+            maxTokens: 2000
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to parse project settings:', error)
+    }
+  }
+  
   return DEFAULT_MODEL_SETTINGS
 }
 

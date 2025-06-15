@@ -48,6 +48,9 @@ export default function ProjectDashboard() {
   const [worldMapService, setWorldMapService] = useState<WorldMapService | null>(null)
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [showValidationSelector, setShowValidationSelector] = useState(false)
+  const [characters, setCharacters] = useState<Character[]>([])
+  const [isFixing, setIsFixing] = useState(false)
+  const [fixingProgress, setFixingProgress] = useState<string>('')
 
   const { setCurrentProject, setCurrentProvider, setApiKey } = useAppStore()
 
@@ -58,6 +61,7 @@ export default function ProjectDashboard() {
     loadChapters()
     loadProjectMeta()
     loadChapterStructure()
+    loadCharacters()
     
     // WorldMapServiceを初期化
     const service = new WorldMapService(projectId)
@@ -205,21 +209,21 @@ export default function ProjectDashboard() {
     return '不明'
   }
 
-  const getCharacterName = (characterId: string): string => {
-    // キャラクター情報をローカルストレージから取得
+  const loadCharacters = () => {
     const stored = localStorage.getItem(`shinwa-characters-${projectId}`)
     if (stored) {
       try {
-        const characters = JSON.parse(stored)
-        const character = characters.find((c: any) => c.id === characterId)
-        if (character) {
-          return character.name
-        }
+        const charactersData = JSON.parse(stored)
+        setCharacters(charactersData)
       } catch (error) {
-        console.error('Failed to parse character data:', error)
+        console.error('Failed to load characters:', error)
       }
     }
-    return characterId // フォールバック
+  }
+
+  const getCharacterName = (characterId: string): string => {
+    const character = characters.find(c => c.id === characterId)
+    return character?.name || characterId // フォールバック
   }
 
   const handleAISettingsSave = async (settings: AISettingsData) => {
@@ -248,9 +252,50 @@ export default function ProjectDashboard() {
     }
   }
 
+  // 再チェック用の関数
+  const handleRecheck = async (content: string) => {
+    setExecutionLog(prev => [...prev, '修正後の内容を再チェック中...'])
+    
+    try {
+      // FlowEngineを使用して検証ステップのみを実行
+      const executor = new NovelFlowExecutor(
+        projectId,
+        project!.settings.aiSettings.model,
+        project!.settings.aiSettings.temperature
+      )
+      
+      const validateStep = mainWritingFlow.steps.find(step => step.id === 'validate-chapter')
+      if (!validateStep) return
+      
+      const context = {
+        chapterNumber: pendingChapter?.chapterNumber || 1,
+        chapterContent: content,
+        rules: project!.settings.writingRules,
+        worldSettings: worldSettings || undefined,
+        characters: characters || []
+      }
+      
+      const result = await executor.executeStep(validateStep, context)
+      
+      if (result.validationResult) {
+        setValidationResult(result.validationResult)
+        
+        if (result.validationResult.isValid) {
+          setExecutionLog(prev => [...prev, '✅ すべての問題が修正されました！'])
+        } else {
+          setExecutionLog(prev => [...prev, `⚠️ まだ${result.validationResult.issues.length}件の問題が残っています。`])
+        }
+      }
+    } catch (error: any) {
+      setExecutionLog(prev => [...prev, `再チェック中にエラーが発生しました: ${error.message}`])
+    }
+  }
+
   const handleFixSelectedIssues = async (selectedIssueIds: string[]) => {
     if (!pendingChapter || !validationResult) return
     
+    setIsFixing(true)
+    setFixingProgress(`選択された${selectedIssueIds.length}件の問題を修正中...`)
     setExecutionLog(prev => [...prev, `選択された${selectedIssueIds.length}件の問題を修正中...`])
     setShowValidationSelector(false)
     
@@ -303,6 +348,10 @@ ${pendingChapter.content}
       setPendingChapter(fixedChapter)
       setValidationResult(null)
       setExecutionLog(prev => [...prev, '選択された問題を修正しました。'])
+      setFixingProgress('修正完了！再度チェックを実行しています...')
+      
+      // 修正後に再度チェックを実行
+      await handleRecheck(fixedChapter.content)
       
       // AI使用を記録
       if (userId) {
@@ -314,6 +363,9 @@ ${pendingChapter.content}
       }
     } catch (error: any) {
       setExecutionLog(prev => [...prev, `修正中にエラーが発生しました: ${error.message}`])
+    } finally {
+      setIsFixing(false)
+      setFixingProgress('')
     }
   }
 
@@ -728,7 +780,10 @@ ${pendingChapter.content}
                       <div key={charId} className="border-b border-gray-200 dark:border-gray-700 pb-2 last:border-0">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <p className="font-medium text-sm">{characterName}</p>
+                            <div className="flex items-baseline gap-2">
+                              <p className="font-medium text-sm">{characterName}</p>
+                              <span className="text-xs text-gray-400 dark:text-gray-500">ID: {charId}</span>
+                            </div>
                             <p className="text-xs text-gray-600 dark:text-gray-400">
                               現在: {locationName}
                             </p>
@@ -740,7 +795,7 @@ ${pendingChapter.content}
                           </div>
                           {worldMapSystem && (
                             <Link 
-                              href={`/projects/${projectId}/world/map?location=${location.currentLocation.locationId}`}
+                              href={`/projects/${projectId}/world?tab=map&location=${location.currentLocation.locationId}`}
                               className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
                             >
                               地図で見る →
@@ -909,8 +964,25 @@ ${pendingChapter.content}
                     </div>
                   )}
                   
+                  {/* 修正中のローディング表示 */}
+                  {isFixing && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-6">
+                      <div className="flex items-center gap-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">
+                            {fixingProgress || '修正中...'}
+                          </h3>
+                          <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                            しばらくお待ちください...
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* 検証問題セレクター */}
-                  {showValidationSelector && validationResult && (
+                  {showValidationSelector && validationResult && !isFixing && (
                     <ValidationIssueSelector
                       validationResult={validationResult}
                       onFixSelected={async (selectedIssueIds) => {

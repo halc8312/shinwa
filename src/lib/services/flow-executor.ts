@@ -187,6 +187,8 @@ export class NovelFlowExecutor implements FlowExecutor {
   }
 
   private async executeValidateStep(step: FlowStep, context: FlowContext): Promise<FlowContext> {
+    this.flowEngine?.log(`検証ステップを開始: 第${context.chapterNumber || 1}章`, 'info')
+    
     // 検証用のモデル設定を取得
     const modelSettings = getFeatureModelSettings(this.projectId, 'validation')
     
@@ -294,6 +296,8 @@ export class NovelFlowExecutor implements FlowExecutor {
       isValid: issues.filter(issue => issue.severity === 'error').length === 0,
       issues: issues
     }
+    
+    this.flowEngine?.log(`検証完了: ${issues.length}件の問題を発見 (エラー: ${issues.filter(i => i.severity === 'error').length}件)`, 'info')
     
     return { validationResult }
   }

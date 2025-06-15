@@ -213,50 +213,134 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
     }
   }
 
-  // プレビューテキストを生成
-  const generatePreviewText = () => {
-    if (!generatedContent) return ''
+  // プレビューコンポーネントを生成
+  const GeneratedContentPreview = () => {
+    if (!generatedContent) return null
     
-    let preview = '## 生成された内容\n\n'
-    
-    // 執筆ルール
-    if (generatedContent.writingRules) {
-      const rules = generatedContent.writingRules
-      preview += '### 執筆ルール\n'
-      preview += `- 視点: ${rules.pointOfView || '未設定'}\n`
-      preview += `- 時制: ${rules.tense || '未設定'}\n`
-      preview += `- 文体: ${rules.writingStyle || '未設定'}\n`
-      if (rules.additionalRules) {
-        preview += `- その他: ${rules.additionalRules}\n`
-      }
-      preview += '\n'
-    }
-    
-    // 世界観設定
-    if (generatedContent.worldSettings) {
-      const world = generatedContent.worldSettings
-      preview += '### 世界観設定\n'
-      if (world.era) preview += `- 時代設定: ${world.era}\n`
-      if (world.geography) preview += `- 地理: ${world.geography}\n`
-      if (world.culture) preview += `- 文化: ${world.culture}\n`
-      if (world.magicSystem) preview += `- 魔法体系: ${world.magicSystem}\n`
-      if (world.technologyLevel) preview += `- 技術レベル: ${world.technologyLevel}\n`
-      preview += '\n'
-    }
-    
-    // キャラクター
-    if (generatedContent.characters && generatedContent.characters.length > 0) {
-      preview += '### キャラクター\n'
-      generatedContent.characters.forEach((char: any, index: number) => {
-        preview += `\n**${index + 1}. ${char.name}**\n`
-        if (char.role) preview += `- 役割: ${char.role}\n`
-        if (char.age) preview += `- 年齢: ${char.age}\n`
-        if (char.personality) preview += `- 性格: ${char.personality}\n`
-        if (char.background) preview += `- 背景: ${char.background}\n`
-      })
-    }
-    
-    return preview
+    return (
+      <div className="space-y-6">
+        {/* 執筆ルール */}
+        {generatedContent.writingRules && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">執筆ルール</h4>
+            </div>
+            <dl className="grid grid-cols-1 gap-3">
+              <div className="flex gap-3">
+                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[80px]">視点：</dt>
+                <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.writingRules.pointOfView === 'first' ? '一人称' : generatedContent.writingRules.pointOfView === 'third' ? '三人称' : '神視点'}</dd>
+              </div>
+              <div className="flex gap-3">
+                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[80px]">時制：</dt>
+                <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.writingRules.tense === 'past' ? '過去形' : '現在形'}</dd>
+              </div>
+              <div className="flex gap-3">
+                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[80px]">文体：</dt>
+                <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.writingRules.style || '標準'}</dd>
+              </div>
+              {generatedContent.writingRules.chapterLength && (
+                <div className="flex gap-3">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[80px]">章の長さ：</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.writingRules.chapterLength.min}〜{generatedContent.writingRules.chapterLength.max}文字</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+        
+        {/* 世界観設定 */}
+        {generatedContent.worldSettings && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">世界観設定</h4>
+            </div>
+            <dl className="grid grid-cols-1 gap-3">
+              {generatedContent.worldSettings.era && (
+                <div className="flex gap-3">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[100px]">時代設定：</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.worldSettings.era}</dd>
+                </div>
+              )}
+              {generatedContent.worldSettings.geography && (
+                <div className="flex gap-3">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[100px]">地理：</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.worldSettings.geography}</dd>
+                </div>
+              )}
+              {generatedContent.worldSettings.culture && (
+                <div className="flex gap-3">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[100px]">文化：</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.worldSettings.culture}</dd>
+                </div>
+              )}
+              {generatedContent.worldSettings.magicSystem && (
+                <div className="flex gap-3">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[100px]">魔法体系：</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.worldSettings.magicSystem}</dd>
+                </div>
+              )}
+              {generatedContent.worldSettings.technologyLevel && (
+                <div className="flex gap-3">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[100px]">技術レベル：</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.worldSettings.technologyLevel}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+        
+        {/* キャラクター */}
+        {generatedContent.characters && generatedContent.characters.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">キャラクター（{generatedContent.characters.length}人）</h4>
+            </div>
+            <div className="space-y-4">
+              {generatedContent.characters.map((char: any, index: number) => (
+                <div key={index} className="border-l-4 border-blue-400 pl-4 py-2">
+                  <h5 className="font-semibold text-gray-900 dark:text-gray-100">{char.name}</h5>
+                  <dl className="mt-2 space-y-1">
+                    {char.role && (
+                      <div className="flex gap-2">
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">役割：</dt>
+                        <dd className="text-xs text-gray-700 dark:text-gray-300">{char.role}</dd>
+                      </div>
+                    )}
+                    {char.age && (
+                      <div className="flex gap-2">
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">年齢：</dt>
+                        <dd className="text-xs text-gray-700 dark:text-gray-300">{char.age}</dd>
+                      </div>
+                    )}
+                    {char.personality && (
+                      <div className="flex gap-2">
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">性格：</dt>
+                        <dd className="text-xs text-gray-700 dark:text-gray-300">{char.personality}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
   }
 
   const handleAISettingsSave = (settings: AISettingsData) => {
@@ -277,30 +361,53 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
           // 確認画面
           <>
             <div className="mb-4">
-              <h3 className="text-lg font-semibold mb-3">生成結果の確認</h3>
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 max-h-96 overflow-y-auto">
-                <pre className="text-sm whitespace-pre-wrap font-sans">
-                  {generatePreviewText()}
-                </pre>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">生成結果の確認</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">AIが生成した内容を確認してください</p>
+                </div>
+              </div>
+              
+              <div className="max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+                <GeneratedContentPreview />
               </div>
             </div>
             
             {error && (
-              <p className="text-sm text-red-600 mb-4">{error}</p>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
             )}
             
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => setShowRegenerateDialog(true)}
-              >
-                再生成する
-              </Button>
-              <Button
-                onClick={handleConfirmAndSave}
-              >
-                この内容で進む
-              </Button>
+            <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                内容に問題がある場合は再生成できます
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowRegenerateDialog(true)}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  再生成する
+                </Button>
+                <Button
+                  onClick={handleConfirmAndSave}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  この内容で進む
+                </Button>
+              </div>
             </div>
           </>
         ) : !isGenerating ? (

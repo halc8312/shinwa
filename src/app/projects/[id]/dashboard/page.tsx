@@ -561,7 +561,7 @@ function StateManagementTab({ chapters, characters, worldSettings, worldMapSyste
               {worldMapSystem && lastLocation && lastLocation !== '不明' && (
                 <div className="mt-3">
                   <Link 
-                    href={`/projects/${projectId}/world/map?location=${lastLocation}`}
+                    href={`/projects/${projectId}/world?tab=map&location=${lastLocation}`}
                     className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 flex items-center gap-1"
                   >
                     <span>地図で見る</span>

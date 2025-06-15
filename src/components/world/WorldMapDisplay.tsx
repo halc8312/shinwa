@@ -137,6 +137,18 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
 
   // Render region view
   const renderRegionView = () => {
+    // 地域データの存在チェック
+    if (!worldMapSystem.regions || worldMapSystem.regions.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-[600px] text-gray-500 dark:text-gray-400">
+          <div className="text-center">
+            <p className="text-lg mb-2">地域データがありません</p>
+            <p className="text-sm">まだ地域マップが生成されていない可能性があります</p>
+          </div>
+        </div>
+      )
+    }
+    
     const region = selectedRegion 
       ? worldMapSystem.regions.find(r => r.id === selectedRegion)
       : worldMapSystem.regions[0]
@@ -170,7 +182,8 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
           <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
           
           {/* Locations */}
-          {region.locations.map(location => (
+          {region.locations && region.locations.length > 0 ? (
+            region.locations.map(location => (
             <div
               key={location.id}
               className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer 
@@ -185,7 +198,12 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
                 </span>
               </div>
             </div>
-          ))}
+          ))
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+              この地域には場所が登録されていません
+            </div>
+          )}
         </div>
       </div>
     )

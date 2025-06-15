@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Project, WorldSettings, Culture, MagicSystem, WorldMapSystem, Character } from '@/lib/types'
 import { projectService } from '@/lib/services/project-service'
@@ -17,6 +17,7 @@ import TravelSimulator from '@/components/world/TravelSimulator'
 export default function WorldSettingsPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const projectId = params.id as string
 
   const [project, setProject] = useState<Project | null>(null)
@@ -59,7 +60,13 @@ export default function WorldSettingsPage() {
     loadData()
     loadProjectMeta()
     loadCharacters()
-  }, [projectId])
+    
+    // クエリパラメータでタブを設定
+    const tab = searchParams.get('tab')
+    if (tab === 'map') {
+      setActiveTab('map')
+    }
+  }, [projectId, searchParams])
 
   const loadData = async () => {
     setIsLoading(true)

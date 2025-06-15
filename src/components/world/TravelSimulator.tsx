@@ -55,15 +55,31 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
 
   // Get available travel methods based on era
   const availableTravelMethods = useMemo(() => {
+    // デフォルトの移動手段を定義
+    const defaultMethods: TravelMethod[] = [
+      { type: 'walk', speed: 4, availability: '全時代' },
+      { type: 'horse', speed: 20, availability: '中世以降' },
+      { type: 'carriage', speed: 10, availability: '中世以降' },
+      { type: 'ship', speed: 15, availability: '全時代（海路のみ）' }
+    ]
+    
     const methods: TravelMethod[] = []
     const uniqueMethods = new Set<string>()
     
-    worldMapSystem.travelTimes.forEach(tt => {
-      if (!uniqueMethods.has(tt.travelMethod.type)) {
-        methods.push(tt.travelMethod)
-        uniqueMethods.add(tt.travelMethod.type)
-      }
-    })
+    // worldMapSystem.travelTimesから移動手段を取得
+    if (worldMapSystem.travelTimes && worldMapSystem.travelTimes.length > 0) {
+      worldMapSystem.travelTimes.forEach(tt => {
+        if (!uniqueMethods.has(tt.travelMethod.type)) {
+          methods.push(tt.travelMethod)
+          uniqueMethods.add(tt.travelMethod.type)
+        }
+      })
+    }
+    
+    // 移動手段が見つからない場合はデフォルトを使用
+    if (methods.length === 0) {
+      return defaultMethods
+    }
     
     return methods.sort((a, b) => a.speed - b.speed)
   }, [worldMapSystem])
