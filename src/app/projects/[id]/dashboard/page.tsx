@@ -30,11 +30,13 @@ export default function ProjectDashboard() {
   const [chapterStructure, setChapterStructure] = useState<any>(null)
   const [worldMapSystem, setWorldMapSystem] = useState<WorldMapSystem | null>(null)
   const [worldMapService, setWorldMapService] = useState<WorldMapService | null>(null)
+  const [characterLocations, setCharacterLocations] = useState<Record<string, any>>({})
 
   useEffect(() => {
     loadProjectData()
     loadChapters()
     loadChapterStructure()
+    loadCharacterLocations()
     
     // WorldMapServiceを初期化
     const service = new WorldMapService(projectId)
@@ -77,6 +79,18 @@ export default function ProjectDashboard() {
       }
     } catch (error) {
       console.error('Failed to load world map:', error)
+    }
+  }
+
+  const loadCharacterLocations = () => {
+    const stored = localStorage.getItem(`shinwa-character-location-${projectId}`)
+    if (stored) {
+      try {
+        const locations = JSON.parse(stored)
+        setCharacterLocations(locations)
+      } catch (error) {
+        console.error('Failed to load character locations:', error)
+      }
     }
   }
 
@@ -422,28 +436,45 @@ function StateManagementTab({ chapters, characters, worldSettings, worldMapSyste
     console.log('Current state charactersPresent:', currentState?.charactersPresent)
     
     const isPresent = currentState?.charactersPresent?.includes(character.id) || false
-    // 最後に登場した章を探す（章番号でソートして最後の章を取得）
-    const chaptersWithCharacter = chapters
-      .filter(ch => {
-        const present = ch.state.charactersPresent?.includes(character.id) || false
-        if (present) {
-          console.log(`Character ${character.name} is present in chapter ${ch.number}`)
-        }
-        return present
-      })
-      .sort((a, b) => a.number - b.number)
     
-    console.log(`Chapters with ${character.name}:`, chaptersWithCharacter.map(ch => ch.number))
+    // キャラクターの位置追跡システムから位置情報を取得
+    const characterLocation = characterLocations[character.id]
+    let locationId = '不明'
+    let locationName = '不明'
     
-    const lastMentionedChapter = chaptersWithCharacter[chaptersWithCharacter.length - 1]
+    if (characterLocation && characterLocation.currentLocation) {
+      locationId = characterLocation.currentLocation.locationId
+      locationName = getLocationName(locationId)
+    } else if (isPresent && currentState?.location) {
+      // 位置追跡システムにデータがない場合は、章の状態から取得
+      locationId = currentState.location
+      locationName = getLocationName(locationId)
+    } else {
+      // 最後に登場した章を探す
+      const chaptersWithCharacter = chapters
+        .filter(ch => ch.state.charactersPresent?.includes(character.id))
+        .sort((a, b) => a.number - b.number)
+      
+      const lastMentionedChapter = chaptersWithCharacter[chaptersWithCharacter.length - 1]
+      if (lastMentionedChapter?.state.location) {
+        locationId = lastMentionedChapter.state.location
+        locationName = getLocationName(locationId)
+      }
+    }
+    
+    // 最後に登場した章番号を取得
+    const lastChapterNumber = characterLocation?.locationHistory?.length > 0 
+      ? characterLocation.locationHistory[characterLocation.locationHistory.length - 1].arrivalChapter
+      : chapters.filter(ch => ch.state.charactersPresent?.includes(character.id))
+               .map(ch => ch.number)
+               .sort((a, b) => b - a)[0] || 0
     
     return {
       character,
       isPresent,
-      lastLocation: isPresent ? currentState?.location : lastMentionedChapter?.state.location || '不明',
-      lastLocationName: isPresent && currentState?.location ? getLocationName(currentState.location) : 
-                        lastMentionedChapter?.state.location ? getLocationName(lastMentionedChapter.state.location) : '不明',
-      lastChapter: lastMentionedChapter?.number || 0
+      lastLocation: locationId,
+      lastLocationName: locationName,
+      lastChapter: lastChapterNumber
     }
   })
 

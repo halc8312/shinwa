@@ -519,7 +519,14 @@ ${pendingChapter.content}
           setValidationResult(result.validationResult)
           if (!result.validationResult.isValid) {
             setExecutionLog(prev => [...prev, '⚠️ 検証で問題が見つかりました'])
+            setExecutionLog(prev => [...prev, `検証結果: ${result.validationResult.issues.length}件の問題`])
+            // 検証結果をコンソールにも出力（デバッグ用）
+            console.log('Validation Result:', result.validationResult)
           }
+        } else {
+          // 検証結果がない場合もログに記録
+          setExecutionLog(prev => [...prev, '✓ 検証結果: 問題なし'])
+          setValidationResult(null)
         }
         
         // 章を一時的に保存してプレビューを表示
@@ -772,6 +779,11 @@ ${pendingChapter.content}
               <h3 className="text-lg font-semibold mb-4">📍 キャラクター位置</h3>
               {Object.keys(characterLocations).length > 0 ? (
                 <div className="space-y-3">
+                  {/* キャラクターが読み込まれていない場合は、localStorageから再読み込み */}
+                  {characters.length === 0 && (() => {
+                    loadCharacters()
+                    return null
+                  })()}
                   {Object.entries(characterLocations).map(([charId, location]) => {
                     const characterName = getCharacterName(charId)
                     const locationName = getLocationName(location.currentLocation.locationId)
@@ -781,10 +793,7 @@ ${pendingChapter.content}
                       <div key={charId} className="border-b border-gray-200 dark:border-gray-700 pb-2 last:border-0">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <div className="flex items-baseline gap-2">
-                              <p className="font-medium text-sm">{characterName}</p>
-                              <span className="text-xs text-gray-400 dark:text-gray-500">ID: {charId}</span>
-                            </div>
+                            <p className="font-medium text-sm">{characterName}</p>
                             <p className="text-xs text-gray-600 dark:text-gray-400">
                               現在: {locationName}
                             </p>

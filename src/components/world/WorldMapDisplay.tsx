@@ -15,6 +15,21 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
     worldMapSystem.regions && worldMapSystem.regions.length > 0 ? worldMapSystem.regions[0].id : null
   )
 
+  // リージョンが変更された時の処理
+  React.useEffect(() => {
+    if (selectedView === 'region') {
+      if (!selectedRegion && worldMapSystem.regions && worldMapSystem.regions.length > 0) {
+        setSelectedRegion(worldMapSystem.regions[0].id)
+      } else if (selectedRegion && worldMapSystem.regions) {
+        // 選択されたリージョンがまだ存在するか確認
+        const regionExists = worldMapSystem.regions.some(r => r.id === selectedRegion)
+        if (!regionExists && worldMapSystem.regions.length > 0) {
+          setSelectedRegion(worldMapSystem.regions[0].id)
+        }
+      }
+    }
+  }, [selectedView, selectedRegion, worldMapSystem.regions])
+
   // Get location icon based on type
   const getLocationIcon = (type: string) => {
     switch (type) {
@@ -169,11 +184,17 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
         {/* Region selector */}
         <div className="mb-4">
           <select
-            value={selectedRegion || region.id}
-            onChange={(e) => setSelectedRegion(e.target.value)}
+            value={selectedRegion || ''}
+            onChange={(e) => {
+              const newRegionId = e.target.value
+              if (newRegionId) {
+                setSelectedRegion(newRegionId)
+              }
+            }}
             className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
               bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
+            {!selectedRegion && <option value="">地域を選択...</option>}
             {worldMapSystem.regions.map(r => (
               <option key={r.id} value={r.id}>{r.name}</option>
             ))}

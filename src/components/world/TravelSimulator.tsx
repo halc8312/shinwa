@@ -36,7 +36,7 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>('')
   const [currentLocationId, setCurrentLocationId] = useState<string>('')
   const [destinationId, setDestinationId] = useState<string>('')
-  const [travelMethod, setTravelMethod] = useState<string>('walk')
+  const [travelMethod, setTravelMethod] = useState<string>('')
   const [showWarnings, setShowWarnings] = useState<boolean>(false)
   const [isSimulating, setIsSimulating] = useState<boolean>(false)
   const [simulationProgress, setSimulationProgress] = useState<number>(0)
@@ -361,22 +361,23 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
                 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
               disabled={!currentLocationId || !destinationId}
             >
-              {!travelMethod && <option value="">移動手段を選択...</option>}
-              {availableTravelMethods.length > 0 ? (
-                availableTravelMethods.map(method => (
-                  <option key={method.type} value={method.type}>
-                    {method.type === 'walk' ? '徒歩' : 
-                     method.type === 'horse' ? '馬' :
-                     method.type === 'carriage' ? '馬車' :
-                     method.type === 'ship' ? '船' :
-                     method.type === 'flight' ? '飛行' :
-                     method.type} 
-                    ({method.speed} km/h) - {method.availability}
-                  </option>
-                ))
-              ) : (
-                <option value="walk">徒歩 (4 km/h) - 全時代</option>
-              )}
+              <option value="">移動手段を選択...</option>
+              {availableTravelMethods.map(method => (
+                <option key={method.type} value={method.type}>
+                  {method.type === 'walk' ? '徒歩' : 
+                   method.type === 'horse' ? '馬' :
+                   method.type === 'carriage' ? '馬車' :
+                   method.type === 'ship' ? '船' :
+                   method.type === 'flight' ? '飛行' :
+                   method.type === 'teleport' ? 'テレポート' :
+                   method.type === 'train' ? '列車' :
+                   method.type === 'car' ? '自動車' :
+                   method.type === 'airplane' ? '飛行機' :
+                   method.type === 'bicycle' ? '自転車' :
+                   method.type} 
+                  ({method.speed} km/h) - {method.availability}
+                </option>
+              ))}
             </select>
           </div>
 
