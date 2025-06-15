@@ -320,10 +320,19 @@ export class NovelFlowExecutor implements FlowExecutor {
         location = '不明'
       }
       
+      // キャラクター配列を確実にIDに変換
+      let charactersPresent: string[] = []
+      if (appearingCharacters.length > 0) {
+        charactersPresent = appearingCharacters
+      } else if (context.chapterPlan?.characters) {
+        // chapterPlanのキャラクターが名前の場合もIDに変換
+        charactersPresent = this.convertCharacterNamesToIds(context.chapterPlan.characters)
+      }
+      
       const newState: ChapterState = {
         time: time,
         location: location,
-        charactersPresent: appearingCharacters.length > 0 ? appearingCharacters : (context.chapterPlan?.characters || []),
+        charactersPresent: charactersPresent,
         plotProgress: this.updatePlotProgress(context),
         worldChanges: this.extractWorldChanges(context),
         foreshadowing: this.updateForeshadowing(context)
@@ -387,13 +396,18 @@ ${chapterNumber > 1 ? '前章からの流れを踏まえて、物語を自然に
   "summary": "章の概要（2-3文）",
   "time": "時間設定（例：早朝、正午、夕暮れ、深夜など）",
   "location": "場所設定",
-  "characters": ["登場キャラクターIDのリスト"],
+  "characters": ["登場キャラクターIDのリスト（重要：キャラクター名ではなく、必ずIDを使用してください）"],
   "mainEvents": ["主要イベント1", "主要イベント2"],
   "foreshadowingToPlant": ["新たに設置する伏線"],
   "foreshadowingToResolve": ["回収する伏線"],
   "openingHook": "章の出だしのフック",
   "closingHook": "章の終わりのフック"
 }
+
+重要な注意事項:
+- charactersフィールドには、キャラクター名ではなく、必ずキャラクターIDを使用してください
+- キャラクターIDは、提供されたキャラクター一覧のidフィールドの値です
+- 例: ["char-123", "char-456"] のような形式で指定してください
 
 ${genre}小説として適切な展開を心がけてください。`
     }
@@ -721,6 +735,11 @@ ${JSON.stringify(context.previousChapters, null, 2)}
         const parsed = JSON.parse(jsonMatch[1])
         
         if (stepId === 'plan-chapter') {
+          // キャラクター名をIDに変換
+          if (parsed.characters && Array.isArray(parsed.characters)) {
+            parsed.characters = this.convertCharacterNamesToIds(parsed.characters)
+          }
+          
           return {
             chapterPlan: parsed,
             chapterTitle: parsed.title,
@@ -996,6 +1015,45 @@ ${JSON.stringify(context.previousChapters, null, 2)}
     
     console.log('Extracted character IDs:', appearingCharacterIds)
     return appearingCharacterIds
+  }
+
+  /**
+   * キャラクター名の配列をIDの配列に変換
+   * 名前とIDが混在している場合も適切に処理
+   */
+  private convertCharacterNamesToIds(charactersArray: string[]): string[] {
+    if (!this.availableCharacters || this.availableCharacters.length === 0) {
+      console.log('No available characters for conversion')
+      return charactersArray
+    }
+
+    const convertedIds: string[] = []
+    
+    charactersArray.forEach(item => {
+      // すでにIDの場合（IDは通常UUIDまたは特定の形式）
+      const existingCharacter = this.availableCharacters.find(c => c.id === item)
+      if (existingCharacter) {
+        convertedIds.push(item)
+        return
+      }
+      
+      // 名前で検索
+      const characterByName = this.availableCharacters.find(c => 
+        c.name.toLowerCase() === item.toLowerCase() ||
+        (c.aliases && c.aliases.some(alias => alias.toLowerCase() === item.toLowerCase()))
+      )
+      
+      if (characterByName) {
+        console.log(`Converting character name "${item}" to ID "${characterByName.id}"`)
+        convertedIds.push(characterByName.id)
+      } else {
+        console.warn(`Could not find character for "${item}", keeping as-is`)
+        // IDでも名前でもマッチしない場合、元の値を保持（後方互換性のため）
+        convertedIds.push(item)
+      }
+    })
+    
+    return convertedIds
   }
 
   private async loadWritingRules(): Promise<WritingRules> {

@@ -33,6 +33,12 @@ export default function ProjectDashboard() {
   const [characterLocations, setCharacterLocations] = useState<Record<string, any>>({})
 
   useEffect(() => {
+    // 既存データのマイグレーション（キャラクター名をIDに変換）
+    import('@/lib/utils/character-data-migration').then(module => {
+      module.migrateProjectCharacterData(projectId)
+      module.cleanupCharacterLocations(projectId)
+    })
+    
     loadProjectData()
     loadChapters()
     loadChapterStructure()
@@ -204,6 +210,7 @@ export default function ProjectDashboard() {
               worldSettings={worldSettings}
               worldMapSystem={worldMapSystem}
               projectId={projectId}
+              characterLocations={characterLocations}
             />
           )}
           {activeTab === 'timeline' && (
@@ -388,12 +395,13 @@ function OverviewTab({ project, chapters, characters, worldSettings, writingRule
 }
 
 // 状態管理タブ
-function StateManagementTab({ chapters, characters, worldSettings, worldMapSystem, projectId }: {
+function StateManagementTab({ chapters, characters, worldSettings, worldMapSystem, projectId, characterLocations }: {
   chapters: Chapter[]
   characters: Character[]
   worldSettings: WorldSettings | null
   worldMapSystem: WorldMapSystem | null
   projectId: string
+  characterLocations: Record<string, any>
 }) {
   const latestChapter = chapters[chapters.length - 1]
   const currentState = latestChapter?.state
