@@ -89,6 +89,13 @@ export default function ProjectDashboard() {
     }
   }, [isAuthenticated, userId])
 
+  useEffect(() => {
+    // キャラクターと世界地図が読み込まれた後、位置情報がない場合は初期化
+    if (characters.length > 0 && worldMapService && Object.keys(characterLocations).length === 0) {
+      initializeCharacterLocations()
+    }
+  }, [characters, worldMapService, characterLocations])
+
   const loadProject = async () => {
     setIsLoading(true)
     try {
@@ -184,7 +191,77 @@ export default function ProjectDashboard() {
       } catch (error) {
         console.error('Failed to load character locations:', error)
       }
+    } else if (worldMapService && characters.length > 0) {
+      // 位置情報がない場合、既存のキャラクターに対して初期位置を設定
+      initializeCharacterLocations()
     }
+  }
+
+  const initializeCharacterLocations = () => {
+    if (!worldMapService || characters.length === 0) return
+
+    const worldMapSystem = worldMapService.loadWorldMapSystem()
+    const newLocations: Record<string, CharacterLocation> = {}
+
+    characters.forEach(character => {
+      if (worldMapSystem && worldMapSystem.worldMap.locations.length > 0) {
+        // 世界地図がある場合、キャラクターの役割に基づいて初期位置を設定
+        const capitals = worldMapSystem.worldMap.locations.filter(loc => loc.type === 'capital')
+        const majorCities = worldMapSystem.worldMap.locations.filter(loc => loc.type === 'major_city')
+        const allLocations = [...capitals, ...majorCities, ...worldMapSystem.worldMap.locations]
+        
+        let locationId = 'unknown'
+        if (allLocations.length > 0) {
+          // ロールに基づいて位置を選択（プロジェクト生成サービスのロジックを参考）
+          switch (character.role) {
+            case 'protagonist':
+              locationId = capitals[0]?.id || majorCities[0]?.id || allLocations[0].id
+              break
+            case 'mentor':
+            case 'supporting':
+              locationId = majorCities[0]?.id || capitals[0]?.id || allLocations[0].id
+              break
+            case 'antagonist':
+              locationId = allLocations[allLocations.length - 1]?.id || allLocations[0].id
+              break
+            default:
+              locationId = allLocations[0].id
+          }
+        }
+
+        newLocations[character.id] = {
+          characterId: character.id,
+          currentLocation: {
+            mapLevel: 'world',
+            locationId: locationId
+          },
+          locationHistory: [
+            {
+              locationId: locationId,
+              arrivalChapter: 0,
+              significantEvents: ['物語の開始']
+            }
+          ]
+        }
+      } else {
+        // 世界地図がない場合でも位置情報を初期化
+        newLocations[character.id] = {
+          characterId: character.id,
+          currentLocation: {
+            mapLevel: 'world',
+            locationId: 'unknown'
+          },
+          locationHistory: []
+        }
+      }
+    })
+
+    // localStorageに保存
+    localStorage.setItem(
+      `shinwa-character-location-${projectId}`,
+      JSON.stringify(newLocations)
+    )
+    setCharacterLocations(newLocations)
   }
 
   const getLocationName = (locationId: string): string => {

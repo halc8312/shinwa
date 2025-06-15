@@ -85,14 +85,30 @@ export default function CharactersPage() {
     try {
       const newCharacter = await characterService.createCharacter(projectId, characterData)
       
-      // 初期位置が設定されている場合、character-locationsに保存
+      // キャラクターの位置情報を初期化（未設定の場合もデフォルト位置を作成）
+      const worldMapService = new WorldMapService(projectId)
       if (characterData.initialLocationId) {
-        const worldMapService = new WorldMapService(projectId)
+        // 初期位置が指定されている場合
         worldMapService.updateCharacterLocation(newCharacter.id, characterData.initialLocationId, 0)
+      } else {
+        // 初期位置が未設定の場合、デフォルトの位置を設定
+        const worldMapSystem = worldMapService.loadWorldMapSystem()
+        if (worldMapSystem && worldMapSystem.worldMap.locations.length > 0) {
+          // 世界地図がある場合、最初の主要都市または首都を初期位置とする
+          const capitals = worldMapSystem.worldMap.locations.filter(loc => loc.type === 'capital')
+          const majorCities = worldMapSystem.worldMap.locations.filter(loc => loc.type === 'major_city')
+          const defaultLocation = capitals[0] || majorCities[0] || worldMapSystem.worldMap.locations[0]
+          worldMapService.updateCharacterLocation(newCharacter.id, defaultLocation.id, 0)
+        } else {
+          // 世界地図がない場合でも、位置情報を初期化（'unknown'として）
+          worldMapService.updateCharacterLocation(newCharacter.id, 'unknown', 0)
+        }
       }
       
       setCharacters([...characters, newCharacter])
       setShowForm(false)
+      // 位置情報を再読み込み
+      window.location.reload()
     } catch (error) {
       console.error('Failed to create character:', error)
     }
