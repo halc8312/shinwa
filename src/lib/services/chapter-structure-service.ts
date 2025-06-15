@@ -7,7 +7,8 @@ import {
   NovelTypeConfig,
   WritingRules,
   WorldSettings,
-  Character 
+  Character,
+  AIModelSettings
 } from '../types'
 import { aiManager } from '../ai/manager'
 import { AIMessage } from '../ai/types'
