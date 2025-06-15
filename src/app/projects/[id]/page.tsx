@@ -276,7 +276,7 @@ export default function ProjectDashboard() {
       if (!validateStep) return
       
       const context = {
-        chapterNumber: pendingChapter?.chapterNumber || 1,
+        chapterNumber: pendingChapter?.number || 1,
         chapterContent: content,
         rules: project!.settings.writingRules,
         worldSettings: worldSettings || undefined,
