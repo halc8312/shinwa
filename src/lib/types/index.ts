@@ -64,6 +64,7 @@ export interface Character {
   relationships: Relationship[]
   arc: CharacterArc
   aliases?: string[]
+  initialLocationId?: string
 }
 
 export interface Relationship {
@@ -240,6 +241,22 @@ export interface AISettings {
 export interface AIProviderSettings {
   provider: 'openai' | 'anthropic'
   apiKey: string
+}
+
+// 検証結果の構造化された型定義
+export interface ValidationIssue {
+  id: string
+  category: 'word-count' | 'dialogue' | 'consistency' | 'travel' | 'character' | 'plot' | 'rule' | 'other'
+  severity: 'error' | 'warning' | 'info'
+  title: string
+  description: string
+  suggestion?: string
+  location?: string  // 該当箇所（章内の位置など）
+}
+
+export interface ValidationResult {
+  isValid: boolean
+  issues: ValidationIssue[]
 }
 
 // 機能別AI設定

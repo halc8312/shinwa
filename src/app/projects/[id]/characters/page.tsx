@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Character, Project } from '@/lib/types'
 import { characterService } from '@/lib/services/character-service'
 import { projectService } from '@/lib/services/project-service'
+import { WorldMapService } from '@/lib/services/world-map-service'
 import CharacterCard from '@/components/character/CharacterCard'
 import CharacterForm from '@/components/character/CharacterForm'
 import CharacterDetailModal from '@/components/character/CharacterDetailModal'
@@ -83,6 +84,13 @@ export default function CharactersPage() {
   const handleCreateCharacter = async (characterData: Omit<Character, 'id'>) => {
     try {
       const newCharacter = await characterService.createCharacter(projectId, characterData)
+      
+      // 初期位置が設定されている場合、character-locationsに保存
+      if (characterData.initialLocationId) {
+        const worldMapService = new WorldMapService(projectId)
+        worldMapService.updateCharacterLocation(newCharacter.id, characterData.initialLocationId, 0)
+      }
+      
       setCharacters([...characters, newCharacter])
       setShowForm(false)
     } catch (error) {
@@ -100,6 +108,12 @@ export default function CharactersPage() {
         characterData
       )
       if (updated) {
+        // 初期位置が変更された場合、character-locationsを更新
+        if (characterData.initialLocationId && characterData.initialLocationId !== editingCharacter.initialLocationId) {
+          const worldMapService = new WorldMapService(projectId)
+          worldMapService.updateCharacterLocation(updated.id, characterData.initialLocationId, 0)
+        }
+        
         setCharacters(characters.map(c => c.id === updated.id ? updated : c))
         setEditingCharacter(null)
         setShowForm(false)

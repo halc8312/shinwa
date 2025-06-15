@@ -11,6 +11,7 @@ import {
 } from '../types'
 import { generateId } from '../utils'
 import { WorldMapService } from './world-map-service'
+import { CharacterLocation } from '../types'
 
 export interface GenerationProgress {
   step: string
@@ -67,7 +68,8 @@ export class ProjectGeneratorService {
       { name: '世界観設定生成', weight: 2 },
       { name: '世界地図生成', weight: 2 },
       { name: 'キャラクター生成', weight: 3 },
-      { name: '関係性構築', weight: 1 }
+      { name: '関係性構築', weight: 1 },
+      { name: '初期位置設定', weight: 1 }
     ]
 
     const totalWeight = steps.reduce((sum, step) => sum + step.weight, 0)
@@ -131,6 +133,13 @@ export class ProjectGeneratorService {
       updateProgress(5, 0)
       const charactersWithRelationships = await this.generateRelationships(characters, analysis, config.aiModel, config.temperature)
       updateProgress(5, 1)
+
+      // Step 7: キャラクターの初期位置を設定
+      updateProgress(6, 0)
+      if (worldMapSystem) {
+        this.assignInitialLocations(charactersWithRelationships, worldMapSystem, analysis, config.projectId)
+      }
+      updateProgress(6, 1)
 
       return {
         writingRules,
@@ -565,6 +574,151 @@ ${JSON.stringify(characterList, null, 2)}
   }
 
   // 生成されたコンテンツのプレビュー用テキストを作成
+  private assignInitialLocations(
+    characters: Character[],
+    worldMapSystem: WorldMapSystem,
+    analysis: any,
+    projectId: string
+  ): void {
+    // キャラクター位置を保存するためのマップ
+    const characterLocations: Record<string, CharacterLocation> = {}
+    const worldMap = worldMapSystem.worldMap
+
+    // 場所を種類別に分類
+    const capitals = worldMap.locations.filter(loc => loc.type === 'capital')
+    const majorCities = worldMap.locations.filter(loc => loc.type === 'major_city')
+    const towns = worldMap.locations.filter(loc => loc.type === 'town')
+    const sacredSites = worldMap.locations.filter(loc => 
+      loc.type === 'sacred_site' || 
+      (loc.description && (loc.description.includes('聖地') || loc.description.includes('神殿') || loc.description.includes('学院')))
+    )
+    const fortresses = worldMap.locations.filter(loc => 
+      loc.type === 'fortress' || 
+      (loc.description && (loc.description.includes('要塞') || loc.description.includes('城')))
+    )
+    const villages = worldMap.locations.filter(loc => loc.type === 'village')
+
+    // すべての場所のリスト（優先度順）
+    const allLocations = [...capitals, ...majorCities, ...towns, ...sacredSites, ...fortresses, ...villages]
+
+    characters.forEach(character => {
+      let assignedLocation: string | null = null
+
+      // 役割に基づいて適切な場所を選択
+      switch (character.role) {
+        case 'protagonist':
+          // 主人公は首都または主要都市に配置
+          if (capitals.length > 0) {
+            assignedLocation = capitals[0].id
+          } else if (majorCities.length > 0) {
+            assignedLocation = majorCities[0].id
+          } else if (allLocations.length > 0) {
+            assignedLocation = allLocations[0].id
+          }
+          break
+
+        case 'mentor':
+          // メンターは聖地、学術都市、または離れた場所に配置
+          if (sacredSites.length > 0) {
+            assignedLocation = sacredSites[Math.floor(Math.random() * sacredSites.length)].id
+          } else if (towns.length > 0) {
+            assignedLocation = towns[Math.floor(Math.random() * towns.length)].id
+          } else if (allLocations.length > 1) {
+            // 主人公とは別の場所に
+            assignedLocation = allLocations[1].id
+          }
+          break
+
+        case 'antagonist':
+          // 敵対者は要塞、辺境、または主人公から離れた場所に配置
+          if (fortresses.length > 0) {
+            assignedLocation = fortresses[Math.floor(Math.random() * fortresses.length)].id
+          } else if (villages.length > 0) {
+            // 辺境の村
+            assignedLocation = villages[villages.length - 1].id
+          } else if (allLocations.length > 2) {
+            // できるだけ離れた場所
+            assignedLocation = allLocations[allLocations.length - 1].id
+          }
+          break
+
+        case 'sidekick':
+        case 'supporting':
+          // 仲間は主人公と同じか近くの場所、または様々な場所に分散
+          const randomChoice = Math.random()
+          if (randomChoice < 0.3 && capitals.length > 0) {
+            // 30%の確率で首都
+            assignedLocation = capitals[0].id
+          } else if (randomChoice < 0.6 && majorCities.length > 0) {
+            // 30%の確率で主要都市
+            assignedLocation = majorCities[Math.floor(Math.random() * majorCities.length)].id
+          } else if (towns.length > 0) {
+            // それ以外は町
+            assignedLocation = towns[Math.floor(Math.random() * towns.length)].id
+          } else if (allLocations.length > 0) {
+            // ランダムな場所
+            assignedLocation = allLocations[Math.floor(Math.random() * allLocations.length)].id
+          }
+          break
+
+        case 'love_interest':
+          // 恋愛対象は主人公と同じか近くの場所
+          if (capitals.length > 0) {
+            assignedLocation = capitals[0].id
+          } else if (majorCities.length > 0) {
+            assignedLocation = majorCities[0].id
+          } else if (allLocations.length > 0) {
+            assignedLocation = allLocations[0].id
+          }
+          break
+
+        case 'rival':
+          // ライバルは主人公と同じか別の主要都市
+          if (majorCities.length > 1) {
+            assignedLocation = majorCities[1].id
+          } else if (capitals.length > 0 && majorCities.length > 0) {
+            assignedLocation = majorCities[0].id
+          } else if (allLocations.length > 1) {
+            assignedLocation = allLocations[1].id
+          }
+          break
+
+        default:
+          // その他のキャラクターはランダムに配置
+          if (allLocations.length > 0) {
+            assignedLocation = allLocations[Math.floor(Math.random() * allLocations.length)].id
+          }
+      }
+
+      // 初期位置を設定
+      if (assignedLocation) {
+        characterLocations[character.id] = {
+          characterId: character.id,
+          currentLocation: {
+            mapLevel: 'world',
+            locationId: assignedLocation
+          },
+          locationHistory: [
+            {
+              locationId: assignedLocation,
+              arrivalChapter: 0, // プロローグまたは第1章
+              significantEvents: ['物語の開始']
+            }
+          ]
+        }
+      }
+    })
+
+    // localStorageに保存
+    if (Object.keys(characterLocations).length > 0) {
+      localStorage.setItem(
+        `shinwa-character-location-${projectId}`,
+        JSON.stringify(characterLocations)
+      )
+    }
+  }
+
+  // 生成されたコンテンツのプレビュー用テキストを作成
   generatePreviewText(content: GeneratedContent): string {
     const sections: string[] = []
 
@@ -613,6 +767,44 @@ ${JSON.stringify(characterList, null, 2)}
       sections.push(`役割: ${char.role}`)
       sections.push(`性格: ${char.personality}`)
       sections.push(`目標: ${char.goals}`)
+      
+      // 初期位置情報を表示（プレビュー時にはprojectIdが不明なため、マップから直接探す）
+      if (content.worldMapSystem) {
+        // 役割に基づいた推定位置を表示
+        let estimatedLocation = null
+        const worldMap = content.worldMapSystem.worldMap
+        const capitals = worldMap.locations.filter(loc => loc.type === 'capital')
+        const majorCities = worldMap.locations.filter(loc => loc.type === 'major_city')
+        const sacredSites = worldMap.locations.filter(loc => 
+          loc.type === 'sacred_site' || 
+          (loc.description && (loc.description.includes('聖地') || loc.description.includes('神殿') || loc.description.includes('学院')))
+        )
+        const fortresses = worldMap.locations.filter(loc => 
+          loc.type === 'fortress' || 
+          (loc.description && (loc.description.includes('要塞') || loc.description.includes('城')))
+        )
+        
+        switch (char.role) {
+          case 'protagonist':
+            if (capitals.length > 0) estimatedLocation = capitals[0].name
+            else if (majorCities.length > 0) estimatedLocation = majorCities[0].name
+            break
+          case 'mentor':
+            if (sacredSites.length > 0) estimatedLocation = sacredSites[0].name
+            break
+          case 'antagonist':
+            if (fortresses.length > 0) estimatedLocation = fortresses[0].name
+            break
+          case 'love_interest':
+            if (capitals.length > 0) estimatedLocation = capitals[0].name
+            else if (majorCities.length > 0) estimatedLocation = majorCities[0].name
+            break
+        }
+        
+        if (estimatedLocation) {
+          sections.push(`初期位置: ${estimatedLocation}（推定）`)
+        }
+      }
       
       if (char.relationships.length > 0) {
         sections.push('関係性:')

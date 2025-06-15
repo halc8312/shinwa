@@ -9,7 +9,9 @@ import {
   Chapter,
   ChapterState,
   BackgroundEvent,
-  Foreshadowing
+  Foreshadowing,
+  ValidationIssue,
+  ValidationResult
 } from '../types'
 import { generateId } from '../utils'
 import { RulesEngine, getProjectRulesEngine } from './rules-engine'
@@ -188,9 +190,9 @@ export class NovelFlowExecutor implements FlowExecutor {
     // 検証用のモデル設定を取得
     const modelSettings = getFeatureModelSettings(this.projectId, 'validation')
     
-    // ルールエンジンによるチェック
-    let rulesCheckResult = { isValid: true, issues: '' }
+    const issues: ValidationIssue[] = []
     
+    // ルールエンジンによるチェック
     if (context.chapterContent && this.rulesEngine) {
       const chapter: Chapter = {
         id: generateId(),
@@ -212,20 +214,42 @@ export class NovelFlowExecutor implements FlowExecutor {
       }
       
       const violations = this.rulesEngine.checkChapter(chapter)
-      if (violations.length > 0) {
-        const suggestions = this.rulesEngine.generateSuggestions(violations)
-        rulesCheckResult = {
-          isValid: violations.filter(v => v.severity === 'error').length === 0,
-          issues: suggestions
-        }
-      }
+      violations.forEach(violation => {
+        issues.push({
+          id: generateId(),
+          category: this.categorizeRuleViolation(violation.rule),
+          severity: violation.severity as 'error' | 'warning' | 'info',
+          title: violation.rule,
+          description: violation.message,
+          suggestion: violation.suggestion
+        })
+      })
     }
 
     // AI による一貫性チェック
     const messages: AIMessage[] = [
       {
         role: 'system',
-        content: 'あなたは小説の一貫性をチェックする編集者です。キャラクターの性格、世界観、時系列の整合性を検証してください。'
+        content: `あなたは小説の一貫性をチェックする編集者です。以下の観点から問題を検出してください：
+- キャラクターの性格の一貫性
+- 世界観の矛盾
+- 時系列の整合性
+- 文章の流れ
+- 会話文の自然さ
+
+問題を見つけた場合は、以下の形式のJSONで出力してください：
+{
+  "issues": [
+    {
+      "category": "consistency" | "character" | "dialogue" | "plot" | "other",
+      "severity": "error" | "warning" | "info",
+      "title": "問題の簡潔なタイトル",
+      "description": "問題の詳細な説明",
+      "suggestion": "改善案（オプション）",
+      "location": "該当箇所の抜粋（オプション）"
+    }
+  ]
+}`
       },
       {
         role: 'user',
@@ -240,20 +264,35 @@ export class NovelFlowExecutor implements FlowExecutor {
       maxTokens: modelSettings.maxTokens
     })
 
-    const aiValidationResult = this.parseValidationResponse(response.content)
+    // AIの検証結果をパース
+    try {
+      const aiResult = this.parseAIValidationResponse(response.content)
+      aiResult.issues.forEach(issue => {
+        issues.push({
+          ...issue,
+          id: generateId()
+        })
+      })
+    } catch (error) {
+      console.error('Failed to parse AI validation response:', error)
+    }
     
-    // 移動の警告も含める
+    // 移動の警告を追加
     const travelWarnings = context.travelWarnings || []
-    const allIssues = [
-      rulesCheckResult.issues,
-      aiValidationResult.issues,
-      travelWarnings.length > 0 ? `【移動の警告】\n${travelWarnings.join('\n')}` : ''
-    ].filter(Boolean).join('\n\n')
+    travelWarnings.forEach(warning => {
+      issues.push({
+        id: generateId(),
+        category: 'travel',
+        severity: 'warning',
+        title: 'キャラクターの移動に関する警告',
+        description: warning
+      })
+    })
     
-    // ルールチェックとAIチェックの結果を統合
-    const validationResult = {
-      isValid: rulesCheckResult.isValid && aiValidationResult.isValid && travelWarnings.length === 0,
-      issues: allIssues
+    // 検証結果を構造化して返す
+    const validationResult: ValidationResult = {
+      isValid: issues.filter(issue => issue.severity === 'error').length === 0,
+      issues: issues
     }
     
     return { validationResult }
@@ -471,7 +510,7 @@ ${rulesPrompt}
     return '小説執筆の処理を行ってください。'
   }
 
-  private buildWritingUserPrompt(step: FlowStep, context: FlowContext): string {
+  private async buildWritingUserPrompt(step: FlowStep, context: FlowContext): Promise<string> {
     const parts: string[] = []
 
     if (step.id === 'generate-background') {
@@ -493,6 +532,101 @@ ${rulesPrompt}
 
       if (context.projectMeta) {
         parts.push(`プロジェクトメタ情報:\n${JSON.stringify(context.projectMeta, null, 2)}`)
+      }
+
+      // 世界地図情報を追加
+      const worldMapSystem = this.worldMapService.loadWorldMapSystem()
+      if (worldMapSystem) {
+        const allLocations: { name: string; type: string; mapLevel: string }[] = []
+        
+        // 世界レベルの場所
+        worldMapSystem.worldMap.locations.forEach(loc => {
+          allLocations.push({
+            name: loc.name,
+            type: loc.type,
+            mapLevel: '世界'
+          })
+        })
+        
+        // 地域レベルの場所
+        worldMapSystem.regions.forEach(region => {
+          region.locations.forEach(loc => {
+            allLocations.push({
+              name: loc.name,
+              type: loc.type,
+              mapLevel: `地域(${region.name})`
+            })
+          })
+        })
+        
+        // ローカルレベルの場所
+        worldMapSystem.localMaps.forEach(localMap => {
+          localMap.areas.forEach(area => {
+            allLocations.push({
+              name: area.name,
+              type: area.type,
+              mapLevel: `ローカル(${localMap.name})`
+            })
+          })
+        })
+        
+        parts.push(`【利用可能な場所】
+${allLocations.map(loc => `- ${loc.name} (${loc.type}, ${loc.mapLevel})`).join('\n')}
+
+※キャラクターが移動する際は、必ず上記の利用可能な場所リストから選んでください。`)
+      }
+
+      // キャラクターの現在位置情報を追加
+      if (this.availableCharacters.length > 0) {
+        const characterLocations = localStorage.getItem(`shinwa-character-location-${this.projectId}`)
+        const locations: Record<string, any> = characterLocations ? JSON.parse(characterLocations) : {}
+        
+        const characterPositions: string[] = []
+        this.availableCharacters.forEach(char => {
+          const charLocation = locations[char.id]
+          if (charLocation && charLocation.currentLocation) {
+            // 現在の場所名を特定
+            let locationName = '不明'
+            if (worldMapSystem) {
+              const locationId = charLocation.currentLocation.locationId
+              // 世界レベルで検索
+              const worldLoc = worldMapSystem.worldMap.locations.find(l => l.id === locationId)
+              if (worldLoc) {
+                locationName = worldLoc.name
+              } else {
+                // 地域レベルで検索
+                for (const region of worldMapSystem.regions) {
+                  const regionLoc = region.locations.find(l => l.id === locationId)
+                  if (regionLoc) {
+                    locationName = regionLoc.name
+                    break
+                  }
+                }
+                // ローカルレベルで検索
+                if (locationName === '不明') {
+                  for (const localMap of worldMapSystem.localMaps) {
+                    const localArea = localMap.areas.find(a => a.id === locationId)
+                    if (localArea) {
+                      locationName = localArea.name
+                      break
+                    }
+                  }
+                }
+              }
+            }
+            characterPositions.push(`- ${char.name}: ${locationName}`)
+          } else if (context.previousState?.charactersPresent?.includes(char.id)) {
+            // 前章の状態から場所を推定
+            characterPositions.push(`- ${char.name}: ${context.previousState.location || '不明'}`)
+          } else {
+            characterPositions.push(`- ${char.name}: 不明`)
+          }
+        })
+        
+        if (characterPositions.length > 0) {
+          parts.push(`【各キャラクターの現在位置】
+${characterPositions.join('\n')}`)
+        }
       }
 
       // 前章の内容と状態を追加（第2章以降の場合）
@@ -547,6 +681,14 @@ ${context.chapterOutline.foreshadowingToReveal?.map((hint: any) => `- ${hint}`).
         parts.push(`物語の設定:\n${JSON.stringify(context.settings, null, 2)}`)
       }
 
+      // 前回の検証問題がある場合は追加
+      if (context.previousValidationIssues && context.previousValidationIssues.length > 0) {
+        parts.push(`【重要：前回の執筆で以下の問題が指摘されました。これらを回避して執筆してください】
+${context.previousValidationIssues.map((issue: ValidationIssue) => 
+  `- ${issue.title}: ${issue.description}${issue.suggestion ? ` (提案: ${issue.suggestion})` : ''}`
+).join('\n')}`)
+      }
+      
       parts.push(`上記の情報を基に、第${context.chapterNumber || 1}章を執筆してください。前章とは異なる新しい展開で物語を進めてください。`)
     }
 
@@ -1175,5 +1317,74 @@ ${chapterContent.substring(0, 2000)}${chapterContent.length > 2000 ? '...' : ''}
     }
 
     return []
+  }
+
+  /**
+   * ルール違反をカテゴリに分類
+   */
+  private categorizeRuleViolation(rule: string): ValidationIssue['category'] {
+    const lowerRule = rule.toLowerCase()
+    
+    if (lowerRule.includes('文字数') || lowerRule.includes('長さ')) {
+      return 'word-count'
+    }
+    if (lowerRule.includes('会話') || lowerRule.includes('対話') || lowerRule.includes('セリフ')) {
+      return 'dialogue'
+    }
+    if (lowerRule.includes('キャラクター') || lowerRule.includes('性格')) {
+      return 'character'
+    }
+    if (lowerRule.includes('プロット') || lowerRule.includes('物語')) {
+      return 'plot'
+    }
+    if (lowerRule.includes('移動') || lowerRule.includes('場所')) {
+      return 'travel'
+    }
+    if (lowerRule.includes('一貫性') || lowerRule.includes('矛盾')) {
+      return 'consistency'
+    }
+    
+    return 'rule'
+  }
+
+  /**
+   * AIの検証レスポンスをパース
+   */
+  private parseAIValidationResponse(content: string): { issues: Omit<ValidationIssue, 'id'>[] } {
+    try {
+      // JSONブロックを探す
+      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[1])
+        if (parsed.issues && Array.isArray(parsed.issues)) {
+          return parsed
+        }
+      }
+      
+      // 直接JSONをパース
+      const directParse = JSON.parse(content)
+      if (directParse.issues && Array.isArray(directParse.issues)) {
+        return directParse
+      }
+    } catch (error) {
+      console.error('Failed to parse AI validation response as JSON:', error)
+    }
+    
+    // フォールバック：テキストから問題を抽出
+    const issues: Omit<ValidationIssue, 'id'>[] = []
+    const lines = content.split('\n')
+    
+    for (const line of lines) {
+      if (line.includes('問題') || line.includes('矛盾') || line.includes('不整合')) {
+        issues.push({
+          category: 'consistency',
+          severity: 'warning',
+          title: '一貫性の問題',
+          description: line.trim()
+        })
+      }
+    }
+    
+    return { issues }
   }
 }

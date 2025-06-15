@@ -37,6 +37,14 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
   const [generationComplete, setGenerationComplete] = useState(false)
   const [showAISettings, setShowAISettings] = useState(false)
   
+  // 確認・再生成関連の状態
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [generatedContent, setGeneratedContent] = useState<any>(null)
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false)
+  const [regenerateMode, setRegenerateMode] = useState<'full' | 'withInstruction'>('full')
+  const [additionalInstruction, setAdditionalInstruction] = useState('')
+  const [projectId, setProjectId] = useState<string | null>(null)
+  
   const { currentProvider, setCurrentProvider, setApiKey } = useAppStore()
 
   const handleCreate = async () => {
@@ -82,33 +90,15 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
             }
           })
 
-          // 生成されたコンテンツを保存
-          // 執筆ルール
-          await projectService.updateWritingRules(project.id, generatedContent.writingRules)
-          
-          // 世界観設定
-          await worldService.updateWorldSettings(project.id, generatedContent.worldSettings)
-          
-          // キャラクター
-          for (const character of generatedContent.characters) {
-            await characterService.createCharacter(project.id, character)
-          }
-          
-          // プロット概要とテーマを保存（拡張データとして）
-          if (generatedContent.plotOutline || generatedContent.themes || generatedContent.genre) {
-            localStorage.setItem(`shinwa-project-meta-${project.id}`, JSON.stringify({
-              plotOutline: generatedContent.plotOutline,
-              themes: generatedContent.themes,
-              genre: generatedContent.genre
-            }))
-          }
-          
+          // 生成されたコンテンツを状態に保存
+          setGeneratedContent(generatedContent)
+          setProjectId(project.id)
           setGenerationComplete(true)
           
-          // 2秒後に章立て設定画面へ遷移
+          // 確認画面を表示
           setTimeout(() => {
-            router.push(`/projects/${project.id}/setup-chapters`)
-          }, 2000)
+            setShowConfirmation(true)
+          }, 1000)
         } catch (genError: any) {
           console.error('AI generation failed:', genError)
           setError('AI生成に失敗しました。プロジェクトは作成されました。')
@@ -139,7 +129,134 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
     setUseAIGeneration(false)
     setGenerationProgress(null)
     setGenerationComplete(false)
+    setShowConfirmation(false)
+    setGeneratedContent(null)
+    setShowRegenerateDialog(false)
+    setRegenerateMode('full')
+    setAdditionalInstruction('')
+    setProjectId(null)
     onClose()
+  }
+
+  // 生成内容を保存して次へ進む
+  const handleConfirmAndSave = async () => {
+    if (!generatedContent || !projectId) return
+    
+    try {
+      // 執筆ルール
+      await projectService.updateWritingRules(projectId, generatedContent.writingRules)
+      
+      // 世界観設定
+      await worldService.updateWorldSettings(projectId, generatedContent.worldSettings)
+      
+      // キャラクター
+      for (const character of generatedContent.characters) {
+        await characterService.createCharacter(projectId, character)
+      }
+      
+      // プロット概要とテーマを保存（拡張データとして）
+      if (generatedContent.plotOutline || generatedContent.themes || generatedContent.genre) {
+        localStorage.setItem(`shinwa-project-meta-${projectId}`, JSON.stringify({
+          plotOutline: generatedContent.plotOutline,
+          themes: generatedContent.themes,
+          genre: generatedContent.genre
+        }))
+      }
+      
+      // 章立て設定画面へ遷移
+      router.push(`/projects/${projectId}/setup-chapters`)
+    } catch (err: any) {
+      setError('保存に失敗しました: ' + (err.message || '不明なエラー'))
+    }
+  }
+
+  // 再生成処理
+  const handleRegenerate = async () => {
+    if (!projectId) return
+    
+    setShowRegenerateDialog(false)
+    setShowConfirmation(false)
+    setIsGenerating(true)
+    setGenerationComplete(false)
+    setError('')
+    
+    try {
+      const prompt = regenerateMode === 'withInstruction' && additionalInstruction.trim()
+        ? `${description.trim()}\n\n追加の指示: ${additionalInstruction.trim()}`
+        : description.trim()
+      
+      const regeneratedContent = await projectGeneratorService.generateProjectContent({
+        projectId: projectId,
+        title: name.trim(),
+        description: prompt,
+        aiModel: selectedModel,
+        temperature: regenerateMode === 'full' ? 0.8 : 0.7, // 完全再生成時は多様性を上げる
+        onProgress: (progress) => {
+          setGenerationProgress(progress)
+        }
+      })
+      
+      setGeneratedContent(regeneratedContent)
+      setGenerationComplete(true)
+      
+      // 確認画面を表示
+      setTimeout(() => {
+        setShowConfirmation(true)
+        setAdditionalInstruction('') // 追加指示をクリア
+      }, 1000)
+    } catch (err: any) {
+      console.error('Regeneration failed:', err)
+      setError('再生成に失敗しました: ' + (err.message || '不明なエラー'))
+      setShowConfirmation(true) // エラー時も確認画面に戻る
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // プレビューテキストを生成
+  const generatePreviewText = () => {
+    if (!generatedContent) return ''
+    
+    let preview = '## 生成された内容\n\n'
+    
+    // 執筆ルール
+    if (generatedContent.writingRules) {
+      const rules = generatedContent.writingRules
+      preview += '### 執筆ルール\n'
+      preview += `- 視点: ${rules.pointOfView || '未設定'}\n`
+      preview += `- 時制: ${rules.tense || '未設定'}\n`
+      preview += `- 文体: ${rules.writingStyle || '未設定'}\n`
+      if (rules.additionalRules) {
+        preview += `- その他: ${rules.additionalRules}\n`
+      }
+      preview += '\n'
+    }
+    
+    // 世界観設定
+    if (generatedContent.worldSettings) {
+      const world = generatedContent.worldSettings
+      preview += '### 世界観設定\n'
+      if (world.era) preview += `- 時代設定: ${world.era}\n`
+      if (world.geography) preview += `- 地理: ${world.geography}\n`
+      if (world.culture) preview += `- 文化: ${world.culture}\n`
+      if (world.magicSystem) preview += `- 魔法体系: ${world.magicSystem}\n`
+      if (world.technologyLevel) preview += `- 技術レベル: ${world.technologyLevel}\n`
+      preview += '\n'
+    }
+    
+    // キャラクター
+    if (generatedContent.characters && generatedContent.characters.length > 0) {
+      preview += '### キャラクター\n'
+      generatedContent.characters.forEach((char: any, index: number) => {
+        preview += `\n**${index + 1}. ${char.name}**\n`
+        if (char.role) preview += `- 役割: ${char.role}\n`
+        if (char.age) preview += `- 年齢: ${char.age}\n`
+        if (char.personality) preview += `- 性格: ${char.personality}\n`
+        if (char.background) preview += `- 背景: ${char.background}\n`
+      })
+    }
+    
+    return preview
   }
 
   const handleAISettingsSave = (settings: AISettingsData) => {
@@ -156,7 +273,37 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
         title="新規プロジェクト作成"
       >
         <div className="space-y-4">
-          {!isGenerating ? (
+          {showConfirmation ? (
+          // 確認画面
+          <>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold mb-3">生成結果の確認</h3>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 max-h-96 overflow-y-auto">
+                <pre className="text-sm whitespace-pre-wrap font-sans">
+                  {generatePreviewText()}
+                </pre>
+              </div>
+            </div>
+            
+            {error && (
+              <p className="text-sm text-red-600 mb-4">{error}</p>
+            )}
+            
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setShowRegenerateDialog(true)}
+              >
+                再生成する
+              </Button>
+              <Button
+                onClick={handleConfirmAndSave}
+              >
+                この内容で進む
+              </Button>
+            </div>
+          </>
+        ) : !isGenerating ? (
           <>
             <Input
               label="プロジェクト名"
@@ -344,7 +491,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
                 </div>
                 <h3 className="text-lg font-semibold mb-2">生成完了！</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  章立て設定へ移動します...
+                  生成内容を確認しています...
                 </p>
               </div>
             )}
@@ -358,6 +505,83 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
       onClose={() => setShowAISettings(false)}
       onSave={handleAISettingsSave}
     />
+    
+    {/* 再生成ダイアログ */}
+    <Modal
+      isOpen={showRegenerateDialog}
+      onClose={() => setShowRegenerateDialog(false)}
+      title="再生成オプション"
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          どのように再生成しますか？
+        </p>
+        
+        <div className="space-y-2">
+          <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            style={{
+              borderColor: regenerateMode === 'full' ? 'rgb(59, 130, 246)' : 'rgb(209, 213, 219)'
+            }}
+          >
+            <input
+              type="radio"
+              name="regenerateMode"
+              value="full"
+              checked={regenerateMode === 'full'}
+              onChange={(e) => setRegenerateMode('full')}
+              className="mt-0.5"
+            />
+            <div>
+              <div className="font-medium">完全に最初から生成</div>
+              <div className="text-sm text-gray-500">元の説明文のみを使用して、全く新しい内容を生成します</div>
+            </div>
+          </label>
+          
+          <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            style={{
+              borderColor: regenerateMode === 'withInstruction' ? 'rgb(59, 130, 246)' : 'rgb(209, 213, 219)'
+            }}
+          >
+            <input
+              type="radio"
+              name="regenerateMode"
+              value="withInstruction"
+              checked={regenerateMode === 'withInstruction'}
+              onChange={(e) => setRegenerateMode('withInstruction')}
+              className="mt-0.5"
+            />
+            <div className="flex-1">
+              <div className="font-medium">指示を追加して再生成</div>
+              <div className="text-sm text-gray-500 mb-2">特定の要望を追加して再生成します</div>
+              {regenerateMode === 'withInstruction' && (
+                <textarea
+                  value={additionalInstruction}
+                  onChange={(e) => setAdditionalInstruction(e.target.value)}
+                  placeholder="例: もっとダークな雰囲気にして、魔法要素を強めてください"
+                  className="mt-2 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  rows={3}
+                />
+              )}
+            </div>
+          </label>
+        </div>
+        
+        <div className="flex justify-end gap-3 pt-2">
+          <Button
+            variant="secondary"
+            onClick={() => setShowRegenerateDialog(false)}
+          >
+            キャンセル
+          </Button>
+          <Button
+            onClick={handleRegenerate}
+            disabled={regenerateMode === 'withInstruction' && !additionalInstruction.trim()}
+          >
+            再生成を開始
+          </Button>
+        </div>
+      </div>
+    </Modal>
     </>
   )
 }

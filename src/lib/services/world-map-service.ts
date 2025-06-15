@@ -556,6 +556,22 @@ export class WorldMapService {
   }
 
   /**
+   * すべてのキャラクター位置を取得
+   */
+  getAllCharacterLocations(): Record<string, CharacterLocation> {
+    const stored = localStorage.getItem(`shinwa-character-location-${this.projectId}`)
+    return stored ? JSON.parse(stored) : {}
+  }
+
+  /**
+   * 特定のキャラクターの現在位置を取得
+   */
+  getCharacterLocation(characterId: string): CharacterLocation | null {
+    const locations = this.getAllCharacterLocations()
+    return locations[characterId] || null
+  }
+
+  /**
    * キャラクター位置を更新
    */
   updateCharacterLocation(
@@ -641,6 +657,165 @@ export class WorldMapService {
   }
 
   /**
+   * 場所名の正規化ルール
+   */
+  private normalizeLocationName(name: string): string {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[　\s]+/g, '')
+      // 「の入り口」「の出口」「の近く」などを除去
+      .replace(/の(入り?口|出口|近く|周辺|付近|そば|傍|側)$/, '')
+      // 「にいる」「にある」などを除去
+      .replace(/(に|で)(いる|ある|居る|在る)$/, '')
+      // 「を囲んでいる場所」などの記述的表現を除去
+      .replace(/を(囲んで|取り囲んで)(いる|る)(場所|所|ところ)?$/, '')
+  }
+
+  /**
+   * 記述的な場所名かどうかを判定
+   */
+  private isDescriptiveLocation(location: string): boolean {
+    const descriptivePatterns = [
+      /火を囲んで/,
+      /焚火/,
+      /焚き火/,
+      /キャンプファイ[ヤア]/,
+      /野営地/,
+      /休憩所/,
+      /を囲んで/,
+      /の周り/,
+      /集まって/,
+      /している場所/,
+      /いる場所/
+    ]
+    
+    return descriptivePatterns.some(pattern => pattern.test(location))
+  }
+
+  /**
+   * 場所名で場所を検索（柔軟な検索）
+   */
+  private findLocationByName(
+    locationName: string,
+    worldMapSystem: WorldMapSystem
+  ): {
+    location: WorldLocation | RegionalLocation | LocalArea
+    mapLevel: 'world' | 'region' | 'local'
+    regionId?: string
+    localMapId?: string
+  } | null {
+    const normalized = this.normalizeLocationName(locationName)
+    
+    // 1. 完全一致で検索
+    // 世界レベル
+    let worldLocation = worldMapSystem.worldMap.locations.find(
+      loc => this.normalizeLocationName(loc.name) === normalized
+    )
+    if (worldLocation) {
+      return { location: worldLocation, mapLevel: 'world' }
+    }
+
+    // 地域レベル
+    for (const region of worldMapSystem.regions) {
+      const regionLocation = region.locations.find(
+        loc => this.normalizeLocationName(loc.name) === normalized
+      )
+      if (regionLocation) {
+        return { location: regionLocation, mapLevel: 'region', regionId: region.id }
+      }
+    }
+
+    // ローカルレベル
+    for (const localMap of worldMapSystem.localMaps) {
+      const localArea = localMap.areas.find(
+        area => this.normalizeLocationName(area.name) === normalized
+      )
+      if (localArea) {
+        return { location: localArea, mapLevel: 'local', localMapId: localMap.id }
+      }
+    }
+
+    // 2. 部分一致で検索（正規化された名前が含まれる）
+    worldLocation = worldMapSystem.worldMap.locations.find(
+      loc => this.normalizeLocationName(loc.name).includes(normalized) ||
+             normalized.includes(this.normalizeLocationName(loc.name))
+    )
+    if (worldLocation) {
+      return { location: worldLocation, mapLevel: 'world' }
+    }
+
+    for (const region of worldMapSystem.regions) {
+      const regionLocation = region.locations.find(
+        loc => this.normalizeLocationName(loc.name).includes(normalized) ||
+               normalized.includes(this.normalizeLocationName(loc.name))
+      )
+      if (regionLocation) {
+        return { location: regionLocation, mapLevel: 'region', regionId: region.id }
+      }
+    }
+
+    // 3. キーワード一致で検索（説明文に含まれる場合）
+    worldLocation = worldMapSystem.worldMap.locations.find(
+      loc => loc.description.toLowerCase().includes(normalized)
+    )
+    if (worldLocation) {
+      return { location: worldLocation, mapLevel: 'world' }
+    }
+
+    return null
+  }
+
+  /**
+   * 最も近い場所の候補を取得
+   */
+  private getSimilarLocations(
+    locationName: string,
+    worldMapSystem: WorldMapSystem,
+    limit: number = 3
+  ): string[] {
+    const allLocations: string[] = []
+    
+    // すべての場所名を収集
+    allLocations.push(...worldMapSystem.worldMap.locations.map(loc => loc.name))
+    
+    for (const region of worldMapSystem.regions) {
+      allLocations.push(...region.locations.map(loc => loc.name))
+    }
+    
+    for (const localMap of worldMapSystem.localMaps) {
+      allLocations.push(...localMap.areas.map(area => area.name))
+    }
+    
+    // 重複を除去
+    const uniqueLocations = Array.from(new Set(allLocations))
+    
+    // 類似度でソート（簡易的な実装）
+    const normalized = this.normalizeLocationName(locationName)
+    const scored = uniqueLocations.map(loc => {
+      const locNormalized = this.normalizeLocationName(loc)
+      let score = 0
+      
+      // 部分一致
+      if (locNormalized.includes(normalized) || normalized.includes(locNormalized)) {
+        score += 10
+      }
+      
+      // 文字の共通度
+      const commonChars = normalized.split('').filter(char => locNormalized.includes(char)).length
+      score += commonChars
+      
+      return { name: loc, score }
+    })
+    
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .filter(item => item.score > 0)
+      .map(item => item.name)
+  }
+
+  /**
    * キャラクターの移動を検証
    */
   async validateTravel(
@@ -648,72 +823,64 @@ export class WorldMapService {
     toLocation: string,
     characterName: string,
     chapterNumber: number
-  ): Promise<{ isValid: boolean; message: string }> {
+  ): Promise<{ isValid: boolean; message: string; severity?: 'error' | 'warning' | 'info' }> {
     const worldMapSystem = this.loadWorldMapSystem()
     if (!worldMapSystem) {
       return {
         isValid: true,
-        message: '世界地図システムが未設定のため、移動検証をスキップしました'
+        message: '世界地図システムが未設定のため、移動検証をスキップしました',
+        severity: 'info'
       }
     }
 
-    // 場所名を正規化（スペースや特殊文字を除去）
-    const normalizeLocationName = (name: string) => 
-      name.trim().toLowerCase().replace(/[　\s]+/g, '')
+    // 場所を検索
+    const fromLocationData = this.findLocationByName(fromLocation, worldMapSystem)
+    const toLocationData = this.findLocationByName(toLocation, worldMapSystem)
 
-    const fromNormalized = normalizeLocationName(fromLocation)
-    const toNormalized = normalizeLocationName(toLocation)
-
-    // 世界地図から場所を検索
-    const findLocationInMap = (locationName: string) => {
-      const normalized = normalizeLocationName(locationName)
-      
-      // 世界レベルで検索
-      const worldLocation = worldMapSystem.worldMap.locations.find(
-        loc => normalizeLocationName(loc.name) === normalized
-      )
-      if (worldLocation) {
-        return { location: worldLocation, mapLevel: 'world' as const }
-      }
-
-      // 地域レベルで検索
-      for (const region of worldMapSystem.regions) {
-        const regionLocation = region.locations.find(
-          loc => normalizeLocationName(loc.name) === normalized
-        )
-        if (regionLocation) {
-          return { location: regionLocation, mapLevel: 'region' as const, regionId: region.id }
-        }
-      }
-
-      // ローカルレベルで検索
-      for (const localMap of worldMapSystem.localMaps) {
-        const localArea = localMap.areas.find(
-          area => normalizeLocationName(area.name) === normalized
-        )
-        if (localArea) {
-          return { location: localArea, mapLevel: 'local' as const, localMapId: localMap.id }
-        }
-      }
-
-      return null
-    }
-
-    const fromLocationData = findLocationInMap(fromLocation)
-    const toLocationData = findLocationInMap(toLocation)
-
-    // 場所が見つからない場合は警告
+    // 場所が見つからない場合の処理
     if (!fromLocationData && fromLocation !== '不明') {
+      // 記述的な場所名の場合は警告レベルを下げる
+      if (this.isDescriptiveLocation(fromLocation)) {
+        return {
+          isValid: true,
+          message: `${characterName}の移動元「${fromLocation}」は一般的な記述です。物語の文脈では問題ありませんが、具体的な地名の使用を推奨します。`,
+          severity: 'info'
+        }
+      }
+      
+      // 類似する場所名を提案
+      const suggestions = this.getSimilarLocations(fromLocation, worldMapSystem)
+      const suggestionText = suggestions.length > 0 
+        ? `（候補: ${suggestions.join('、')}）` 
+        : ''
+      
       return {
         isValid: false,
-        message: `${characterName}の移動元「${fromLocation}」が地図上に存在しません`
+        message: `${characterName}の移動元「${fromLocation}」が地図上に存在しません。${suggestionText}`,
+        severity: 'error'
       }
     }
 
     if (!toLocationData) {
+      // 記述的な場所名の場合は警告レベルを下げる
+      if (this.isDescriptiveLocation(toLocation)) {
+        return {
+          isValid: true,
+          message: `${characterName}の移動先「${toLocation}」は一般的な記述です。物語の文脈では問題ありませんが、具体的な地名の使用を推奨します。`,
+          severity: 'info'
+        }
+      }
+      
+      // 類似する場所名を提案
+      const suggestions = this.getSimilarLocations(toLocation, worldMapSystem)
+      const suggestionText = suggestions.length > 0 
+        ? `（候補: ${suggestions.join('、')}）` 
+        : ''
+      
       return {
         isValid: false,
-        message: `${characterName}の移動先「${toLocation}」が地図上に存在しません`
+        message: `${characterName}の移動先「${toLocation}」が地図上に存在しません。${suggestionText}`,
+        severity: 'error'
       }
     }
 
@@ -759,7 +926,8 @@ export class WorldMapService {
           
           return {
             isValid: true,
-            message: `${characterName}は${fromLocation}から${toLocation}へ${method.type === 'walk' ? '徒歩' : method.type === 'horse' ? '馬' : method.type}で約${timeHours}時間で移動しました`
+            message: `${characterName}は${fromLocation}から${toLocation}へ${method.type === 'walk' ? '徒歩' : method.type === 'horse' ? '馬' : method.type}で約${timeHours}時間で移動しました`,
+            severity: 'info'
           }
         }
       }
@@ -770,7 +938,8 @@ export class WorldMapService {
           fromLocationData.regionId === toLocationData.regionId) {
         return {
           isValid: true,
-          message: `${characterName}は同じ地域内で${fromLocation}から${toLocation}へ移動しました`
+          message: `${characterName}は同じ地域内で${fromLocation}から${toLocation}へ移動しました`,
+          severity: 'info'
         }
       }
 
@@ -791,7 +960,8 @@ export class WorldMapService {
         if (fromLocationData.mapLevel === 'world' && toLocationData.mapLevel === 'world' && distance > 50) {
           return {
             isValid: false,
-            message: `${characterName}が${fromLocation}から${toLocation}へ1章で移動するのは距離が遠すぎます（推定${Math.round(distance * 50)}km）。段階的な移動を描写してください`
+            message: `${characterName}が${fromLocation}から${toLocation}へ1章で移動するのは距離が遠すぎます（推定${Math.round(distance * 50)}km）。段階的な移動を描写してください`,
+            severity: 'error'
           }
         }
       }
@@ -800,7 +970,8 @@ export class WorldMapService {
     // デフォルトは許可（柔軟性のため）
     return {
       isValid: true,
-      message: `${characterName}は${fromLocation}から${toLocation}へ移動しました`
+      message: `${characterName}は${fromLocation}から${toLocation}へ移動しました`,
+      severity: 'info'
     }
   }
 
@@ -817,19 +988,16 @@ export class WorldMapService {
       return null
     }
 
-    // 場所を検索して接続を確認
-    const normalizeLocationName = (name: string) => 
-      name.trim().toLowerCase().replace(/[　\s]+/g, '')
-
-    const findLocation = (name: string) => {
-      const normalized = normalizeLocationName(name)
-      return worldMapSystem.worldMap.locations.find(
-        loc => normalizeLocationName(loc.name) === normalized
-      )?.id
+    // 場所を検索
+    const fromLocationData = this.findLocationByName(fromLocation, worldMapSystem)
+    const toLocationData = this.findLocationByName(toLocation, worldMapSystem)
+    
+    if (!fromLocationData || !toLocationData) {
+      return null
     }
-
-    const fromId = findLocation(fromLocation)
-    const toId = findLocation(toLocation)
+    
+    const fromId = (fromLocationData.location as any).id
+    const toId = (toLocationData.location as any).id
 
     if (!fromId || !toId) {
       return null

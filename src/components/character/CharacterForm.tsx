@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Character, CharacterArc } from '@/lib/types'
+import { Character, CharacterArc, WorldLocation, RegionalLocation, LocalArea } from '@/lib/types'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import { characterService } from '@/lib/services/character-service'
+import { WorldMapService } from '@/lib/services/world-map-service'
 
 interface CharacterFormProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (character: Omit<Character, 'id'>) => void
+  onSave: (character: Omit<Character, 'id'>) => void | Promise<void>
   character?: Character
   projectId: string
 }
@@ -34,9 +35,15 @@ export default function CharacterForm({
       start: '',
       journey: [''],
       end: ''
-    } as CharacterArc
+    } as CharacterArc,
+    initialLocationId: ''
   })
   const [useTemplate, setUseTemplate] = useState(false)
+  const [availableLocations, setAvailableLocations] = useState<{
+    world: WorldLocation[]
+    regional: { regionName: string; locations: RegionalLocation[] }[]
+    local: { mapName: string; areas: LocalArea[] }[]
+  }>({ world: [], regional: [], local: [] })
 
   useEffect(() => {
     if (character) {
@@ -49,12 +56,19 @@ export default function CharacterForm({
         personality: character.personality.length > 0 ? character.personality : [''],
         background: character.background,
         goals: character.goals.length > 0 ? character.goals : [''],
-        arc: character.arc
+        arc: character.arc,
+        initialLocationId: character.initialLocationId || ''
       })
     } else {
       resetForm()
     }
   }, [character])
+
+  useEffect(() => {
+    if (isOpen && projectId) {
+      loadAvailableLocations()
+    }
+  }, [isOpen, projectId])
 
   const resetForm = () => {
     setFormData({
@@ -70,11 +84,35 @@ export default function CharacterForm({
         start: '',
         journey: [''],
         end: ''
-      }
+      },
+      initialLocationId: ''
     })
   }
 
-  const handleSubmit = () => {
+  const loadAvailableLocations = () => {
+    const worldMapService = new WorldMapService(projectId)
+    const mapSystem = worldMapService.loadWorldMapSystem()
+    
+    if (mapSystem) {
+      const worldLocations = mapSystem.worldMap.locations || []
+      const regionalGroups = mapSystem.regions.map(region => ({
+        regionName: region.name,
+        locations: region.locations || []
+      }))
+      const localGroups = mapSystem.localMaps.map(localMap => ({
+        mapName: localMap.name,
+        areas: localMap.areas || []
+      }))
+      
+      setAvailableLocations({
+        world: worldLocations,
+        regional: regionalGroups,
+        local: localGroups
+      })
+    }
+  }
+
+  const handleSubmit = async () => {
     if (!formData.name.trim()) {
       alert('キャラクター名を入力してください')
       return
@@ -94,10 +132,11 @@ export default function CharacterForm({
         start: formData.arc.start.trim(),
         journey: formData.arc.journey.filter(j => j.trim()),
         end: formData.arc.end.trim()
-      }
+      },
+      initialLocationId: formData.initialLocationId || undefined
     }
 
-    onSave(characterData)
+    await onSave(characterData)
     handleClose()
   }
 
@@ -392,6 +431,50 @@ export default function CharacterForm({
             placeholder="例: 真の英雄"
             className="mt-4"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            初期位置（オプション）
+          </label>
+          <Select
+            value={formData.initialLocationId}
+            onChange={(e) => setFormData({ ...formData, initialLocationId: e.target.value })}
+            options={[
+              { value: '', label: '未設定' },
+              // 世界レベルの場所
+              ...(availableLocations.world.length > 0 ? [
+                { value: 'world-header', label: '--- 世界マップ ---', disabled: true }
+              ] : []),
+              ...availableLocations.world.map(loc => ({
+                value: loc.id,
+                label: `${loc.name}${loc.type === 'capital' ? ' (首都)' : loc.type === 'major_city' ? ' (主要都市)' : ''}`
+              })),
+              // 地域レベルの場所
+              ...availableLocations.regional.flatMap(group => [
+                ...(group.locations.length > 0 ? [
+                  { value: `region-header-${group.regionName}`, label: `--- ${group.regionName} ---`, disabled: true }
+                ] : []),
+                ...group.locations.map(loc => ({
+                  value: loc.id,
+                  label: `${loc.name}${loc.importance === 'major' ? ' (重要)' : ''}`
+                }))
+              ]),
+              // ローカルレベルの場所
+              ...availableLocations.local.flatMap(group => [
+                ...(group.areas.length > 0 ? [
+                  { value: `local-header-${group.mapName}`, label: `--- ${group.mapName} ---`, disabled: true }
+                ] : []),
+                ...group.areas.map(area => ({
+                  value: area.id,
+                  label: area.name
+                }))
+              ])
+            ]}
+          />
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            キャラクターが物語開始時にいる場所を選択できます
+          </p>
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t">

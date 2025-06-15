@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Project, Chapter, WorldMapSystem, CharacterLocation } from '@/lib/types'
+import { Project, Chapter, WorldMapSystem, CharacterLocation, ValidationResult, ValidationIssue } from '@/lib/types'
 import { projectService } from '@/lib/services/project-service'
 import { WorldMapService } from '@/lib/services/world-map-service'
 import { useAppStore } from '@/lib/store'
@@ -14,8 +14,10 @@ import { FlowEngine } from '@/lib/services/flow-engine'
 import { NovelFlowExecutor } from '@/lib/services/flow-executor'
 import { mainWritingFlow } from '@/data/flows/main-flow'
 import { aiManager } from '@/lib/ai/manager'
-import { formatDate, countCharacters } from '@/lib/utils'
+import { formatDate, countCharacters, generateId } from '@/lib/utils'
+import { getFeatureModelSettings } from '@/lib/utils/ai-settings'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import ValidationIssueSelector from '@/components/validation/ValidationIssueSelector'
 
 export default function ProjectDashboard() {
   const params = useParams()
@@ -44,7 +46,8 @@ export default function ProjectDashboard() {
   const [worldMapSystem, setWorldMapSystem] = useState<WorldMapSystem | null>(null)
   const [characterLocations, setCharacterLocations] = useState<Record<string, CharacterLocation>>({})
   const [worldMapService, setWorldMapService] = useState<WorldMapService | null>(null)
-  const [validationResult, setValidationResult] = useState<{ isValid: boolean; issues: string } | null>(null)
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
+  const [showValidationSelector, setShowValidationSelector] = useState(false)
 
   const { setCurrentProject, setCurrentProvider, setApiKey } = useAppStore()
 
@@ -245,7 +248,89 @@ export default function ProjectDashboard() {
     }
   }
 
-  const handleExecuteFlow = async () => {
+  const handleFixSelectedIssues = async (selectedIssueIds: string[]) => {
+    if (!pendingChapter || !validationResult) return
+    
+    setExecutionLog(prev => [...prev, `選択された${selectedIssueIds.length}件の問題を修正中...`])
+    setShowValidationSelector(false)
+    
+    // 選択された問題のみをフィルタリング
+    const selectedIssues = validationResult.issues.filter(issue => 
+      selectedIssueIds.includes(issue.id)
+    )
+    
+    try {
+      // 修正プロンプトを構築
+      const fixPrompt = `以下の問題を修正してください：
+
+${selectedIssues.map(issue => 
+  `【${issue.title}】
+カテゴリ: ${issue.category}
+重要度: ${issue.severity}
+説明: ${issue.description}
+${issue.suggestion ? `提案: ${issue.suggestion}` : ''}
+${issue.location ? `該当箇所: ${issue.location}` : ''}`
+).join('\n\n')}
+
+元の章の内容:
+${pendingChapter.content}
+
+上記の問題を修正した章の内容を出力してください。修正した箇所以外は元の文章をそのまま保持してください。`
+
+      const modelSettings = getFeatureModelSettings(projectId, 'validation')
+      const response = await aiManager.complete({
+        model: modelSettings.model,
+        messages: [
+          {
+            role: 'system',
+            content: '小説の編集者として、指摘された問題を修正してください。元の文章の良い部分は保持し、問題のある部分のみを修正してください。'
+          },
+          {
+            role: 'user',
+            content: fixPrompt
+          }
+        ],
+        temperature: 0.5,
+        maxTokens: modelSettings.maxTokens
+      })
+      
+      // 修正された内容で章を更新
+      const fixedChapter = {
+        ...pendingChapter,
+        content: response.content
+      }
+      
+      setPendingChapter(fixedChapter)
+      setValidationResult(null)
+      setExecutionLog(prev => [...prev, '選択された問題を修正しました。'])
+      
+      // AI使用を記録
+      if (userId) {
+        await fetch('/api/ai-usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'record' })
+        })
+      }
+    } catch (error: any) {
+      setExecutionLog(prev => [...prev, `修正中にエラーが発生しました: ${error.message}`])
+    }
+  }
+
+  const handleFixAllIssues = async () => {
+    if (!pendingChapter || !validationResult) return
+    
+    setExecutionLog(prev => [...prev, 'すべての問題を修正して再生成中...'])
+    setShowValidationSelector(false)
+    setShowChapterPreview(false)
+    setPendingChapter(null)
+    setValidationResult(null)
+    
+    // 再生成（検証結果を考慮）
+    await handleExecuteFlow(true, validationResult.issues)
+  }
+
+  const handleExecuteFlow = async (isRegeneration = false, previousIssues: ValidationIssue[] = []) => {
     if (!project?.settings.aiSettings) {
       setShowAISettings(true)
       return
@@ -339,11 +424,19 @@ export default function ProjectDashboard() {
         (ch: any) => ch.number === nextChapterNumber
       )
       
-      const result = await engine.execute({
+      const context: any = {
         chapterNumber: nextChapterNumber,
         projectId: projectId,
         chapterOutline: chapterOutline || null
-      })
+      }
+      
+      // 再生成時は前回の問題を含める
+      if (isRegeneration && previousIssues.length > 0) {
+        context.previousValidationIssues = previousIssues
+        setExecutionLog(prev => [...prev, `前回の${previousIssues.length}件の問題を考慮して再生成します`])
+      }
+      
+      const result = await engine.execute(context)
 
       if (result.chapterContent) {
         // 一意のIDを生成（タイムスタンプとランダム文字列）
@@ -798,63 +891,92 @@ export default function ProjectDashboard() {
               <div className="p-6 overflow-y-auto flex-1">
                 <div className="space-y-6">
                   {/* 検証結果の警告 */}
-                  {validationResult && !validationResult.isValid && (
+                  {validationResult && !validationResult.isValid && !showValidationSelector && (
                     <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
                       <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
-                        ⚠️ 検証で問題が見つかりました
+                        ⚠️ 検証で{validationResult.issues.length}件の問題が見つかりました
                       </h3>
-                      <div className="text-sm text-yellow-700 dark:text-yellow-300 whitespace-pre-wrap">
-                        {validationResult.issues}
-                      </div>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                        問題を個別に確認して、修正する項目を選択できます。
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setShowValidationSelector(true)}
+                      >
+                        問題を確認
+                      </Button>
                     </div>
                   )}
                   
-                  {/* 本文 */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">本文</h3>
-                    <div className="prose prose-lg max-w-none dark:prose-invert">
-                      <div className="font-serif text-lg leading-relaxed whitespace-pre-wrap bg-gray-50 dark:bg-gray-900 p-6 rounded-lg">
-                        {pendingChapter.content}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-2">
-                      文字数: {countCharacters(pendingChapter.content)}文字
-                    </p>
-                  </div>
-
-                  {/* 背景イベント */}
-                  {pendingChapter.backgroundEvents.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">
-                        裏側で起きている出来事
-                      </h3>
-                      <div className="space-y-2">
-                        {pendingChapter.backgroundEvents.map((event, index) => (
-                          <div key={event.id} className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded">
-                            <p className="text-sm">{event.description}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              影響: {event.impact} | 可視性: {event.visibility}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                  {/* 検証問題セレクター */}
+                  {showValidationSelector && validationResult && (
+                    <ValidationIssueSelector
+                      validationResult={validationResult}
+                      onFixSelected={async (selectedIssueIds) => {
+                        // 選択された問題を修正
+                        await handleFixSelectedIssues(selectedIssueIds)
+                      }}
+                      onFixAll={async () => {
+                        // すべての問題を修正
+                        await handleFixAllIssues()
+                      }}
+                      onDismiss={() => {
+                        setShowValidationSelector(false)
+                      }}
+                    />
                   )}
+                  
+                  {/* 本文（検証セレクターが表示されていない場合のみ） */}
+                  {!showValidationSelector && (
+                    <>
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">本文</h3>
+                        <div className="prose prose-lg max-w-none dark:prose-invert">
+                          <div className="font-serif text-lg leading-relaxed whitespace-pre-wrap bg-gray-50 dark:bg-gray-900 p-6 rounded-lg">
+                            {pendingChapter.content}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-2">
+                          文字数: {countCharacters(pendingChapter.content)}文字
+                        </p>
+                      </div>
 
-                  {/* 状態情報 */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">章の状態</h3>
-                    <dl className="grid grid-cols-2 gap-4 text-sm">
+                      {/* 背景イベント */}
+                      {pendingChapter.backgroundEvents.length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-3">
+                            裏側で起きている出来事
+                          </h3>
+                          <div className="space-y-2">
+                            {pendingChapter.backgroundEvents.map((event, index) => (
+                              <div key={event.id} className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded">
+                                <p className="text-sm">{event.description}</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  影響: {event.impact} | 可視性: {event.visibility}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 状態情報 */}
                       <div>
-                        <dt className="text-gray-500">時間</dt>
-                        <dd className="font-medium">{pendingChapter.state.time || '未設定'}</dd>
+                        <h3 className="text-lg font-semibold mb-3">章の状態</h3>
+                        <dl className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <dt className="text-gray-500">時間</dt>
+                            <dd className="font-medium">{pendingChapter.state.time || '未設定'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-gray-500">場所</dt>
+                            <dd className="font-medium">{pendingChapter.state.location || '未設定'}</dd>
+                          </div>
+                        </dl>
                       </div>
-                      <div>
-                        <dt className="text-gray-500">場所</dt>
-                        <dd className="font-medium">{pendingChapter.state.location || '未設定'}</dd>
-                      </div>
-                    </dl>
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -867,6 +989,7 @@ export default function ProjectDashboard() {
                       setShowChapterPreview(false)
                       setIsExecuting(false)
                       setValidationResult(null)
+                      setShowValidationSelector(false)
                     }
                   }}
                 >
