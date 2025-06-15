@@ -1162,7 +1162,6 @@ ${JSON.stringify(context.previousChapters, null, 2)}
     warnings: string[]
   }> {
     const movements = await this.extractCharacterMovements(chapterContent, context)
-    console.log('[validateCharacterMovements] Extracted movements:', movements)
     const warnings: string[] = []
 
     // 世界地図システムを読み込む
@@ -1181,12 +1180,6 @@ ${JSON.stringify(context.previousChapters, null, 2)}
         context.chapterNumber || 1
       )
 
-      console.log(`[validateCharacterMovements] Validation result for ${movement.characterName}:`, {
-        isValid: validationResult.isValid,
-        severity: validationResult.severity,
-        message: validationResult.message
-      })
-      
       if (!validationResult.isValid) {
         warnings.push(validationResult.message)
         this.flowEngine?.log(
@@ -1217,13 +1210,13 @@ ${JSON.stringify(context.previousChapters, null, 2)}
   ): Promise<Array<{ characterId: string; characterName: string; from: string; to: string }>> {
     const movements: Array<{ characterId: string; characterName: string; from: string; to: string }> = []
     
-    // 移動を示すパターン
+    // 移動を示すパターン（改行を含まないように修正）
     const movementPatterns = [
-      /([^。、]+?)は([^。、]+?)から([^。、]+?)へ(?:向かった|出発した|旅立った|移動した)/g,
-      /([^。、]+?)は([^。、]+?)を(?:出て|離れて|後にして)、([^。、]+?)へ/g,
-      /([^。、]+?)は([^。、]+?)に(?:到着した|着いた|辿り着いた)/g,
-      /([^。、]+?)を(?:訪れた|訪問した)([^。、]+)/g,
-      /([^。、]+?)から([^。、]+?)への(?:旅|道のり|移動)/g
+      /([^。、\n]+?)は([^。、\n]+?)から([^。、\n]+?)へ(?:向かった|出発した|旅立った|移動した)/g,
+      /([^。、\n]+?)は([^。、\n]+?)を(?:出て|離れて|後にして)、([^。、\n]+?)へ/g,
+      /([^。、\n]+?)は([^。、\n]+?)に(?:到着した|着いた|辿り着いた)/g,
+      /([^。、\n]+?)を(?:訪れた|訪問した)([^。、\n]+)/g,
+      /([^。、\n]+?)から([^。、\n]+?)への(?:旅|道のり|移動)/g
     ]
 
     // 利用可能なキャラクターのマップを作成
@@ -1240,11 +1233,30 @@ ${JSON.stringify(context.previousChapters, null, 2)}
       })
     }
 
-    // 前章の状態から現在の位置を取得
+    // キャラクターの現在位置を取得（character-locationデータを優先）
     const currentLocations = new Map<string, string>()
+    
+    // まずcharacter-locationデータから取得を試みる
+    const stored = localStorage.getItem(`shinwa-character-location-${this.projectId}`)
+    if (stored) {
+      try {
+        const locationData: Record<string, any> = JSON.parse(stored)
+        Object.entries(locationData).forEach(([charId, location]) => {
+          if (location.currentLocation?.locationId) {
+            currentLocations.set(charId, location.currentLocation.locationId)
+          }
+        })
+      } catch (error) {
+        console.error('Failed to parse character location data:', error)
+      }
+    }
+    
+    // character-locationデータがない場合は前章の状態から取得
     if (context.previousState?.charactersPresent && context.previousState?.location) {
       context.previousState.charactersPresent.forEach((charId: string) => {
-        currentLocations.set(charId, context.previousState.location)
+        if (!currentLocations.has(charId)) {
+          currentLocations.set(charId, context.previousState.location)
+        }
       })
     }
 
@@ -1272,8 +1284,11 @@ ${JSON.stringify(context.previousChapters, null, 2)}
           const destination = match[match.length - 1]?.trim()
           
           if (destination) {
-            // 移動元を特定
+            // 移動元を特定（unknownの場合は不明に変換）
             let origin = currentLocations.get(characterId) || '不明'
+            if (origin === 'unknown') {
+              origin = '不明'
+            }
             
             // パターンによって移動元が明示されている場合
             if (match.length >= 3 && match[2]) {

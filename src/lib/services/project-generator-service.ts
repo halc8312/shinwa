@@ -734,6 +734,40 @@ ${JSON.stringify(characterList, null, 2)}
             }
           ]
         }
+      } else {
+        // デフォルトの場所が見つからない場合、最初の利用可能な場所を割り当てる
+        if (allWorldLocations.length > 0) {
+          characterLocations[character.id] = {
+            characterId: character.id,
+            currentLocation: {
+              mapLevel: 'world',
+              locationId: allWorldLocations[0].id
+            },
+            locationHistory: [
+              {
+                locationId: allWorldLocations[0].id,
+                arrivalChapter: 0,
+                significantEvents: ['物語の開始']
+              }
+            ]
+          }
+        } else if (allRegionalLocations.length > 0) {
+          characterLocations[character.id] = {
+            characterId: character.id,
+            currentLocation: {
+              mapLevel: 'region',
+              locationId: allRegionalLocations[0].id
+            },
+            locationHistory: [
+              {
+                locationId: allRegionalLocations[0].id,
+                arrivalChapter: 0,
+                significantEvents: ['物語の開始']
+              }
+            ]
+          }
+        }
+        // それでも場所が見つからない場合は、unknownのままになる
       }
     })
 

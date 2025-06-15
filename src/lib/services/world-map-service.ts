@@ -709,17 +709,6 @@ export class WorldMapService {
     
     const isDescriptive = descriptivePatterns.some(pattern => pattern.test(normalizedLocation))
     
-    // デバッグログ（元の文字列と正規化後の文字列を表示）
-    console.log(`[isDescriptiveLocation] Original: "${location}" (length: ${location.length})`)
-    console.log(`[isDescriptiveLocation] Normalized: "${normalizedLocation}" (length: ${normalizedLocation.length})`)
-    console.log(`[isDescriptiveLocation] Result: ${isDescriptive ? 'TRUE (is descriptive)' : 'FALSE (not descriptive)'}`)
-    
-    // マッチしたパターンも表示
-    if (isDescriptive) {
-      const matchedPatterns = descriptivePatterns.filter(pattern => pattern.test(normalizedLocation))
-      console.log(`[isDescriptiveLocation] Matched patterns: ${matchedPatterns.map(p => p.toString()).join(', ')}`)
-    }
-    
     return isDescriptive
   }
 
@@ -863,12 +852,21 @@ export class WorldMapService {
       }
     }
 
+    // 初期位置が不明な場合は検証をスキップ
+    if (fromLocation === '不明' || fromLocation === 'unknown') {
+      return {
+        isValid: true,
+        message: `${characterName}の初期位置から${toLocation}へ移動しました`,
+        severity: 'info'
+      }
+    }
+
     // 場所を検索
     const fromLocationData = this.findLocationByName(fromLocation, worldMapSystem)
     const toLocationData = this.findLocationByName(toLocation, worldMapSystem)
 
     // 場所が見つからない場合の処理
-    if (!fromLocationData && fromLocation !== '不明') {
+    if (!fromLocationData) {
       console.log(`[validateTravel] From location "${fromLocation}" not found in map for ${characterName}`)
       
       // 記述的な場所名の場合は警告レベルを下げる
