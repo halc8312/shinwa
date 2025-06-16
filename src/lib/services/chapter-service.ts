@@ -1,6 +1,8 @@
 import { Chapter, BackgroundEvent, ChapterState, Foreshadowing } from '../types'
 import { generateId } from '../utils'
 import { SummaryService } from './summary-service'
+import { ForeshadowingTrackerService } from './foreshadowing-tracker-service'
+import { projectService } from './project-service'
 
 class ChapterService {
   private getStorageKey(projectId: string): string {
@@ -73,6 +75,17 @@ class ChapterService {
       id: chapters[index].id,
       createdAt: chapters[index].createdAt,
       updatedAt: new Date()
+    }
+    
+    // 章の内容が更新された場合、伏線の自動処理を実行
+    if (updates.content && chapters[index].number) {
+      await ForeshadowingTrackerService.processForeshadowingForChapter(
+        projectId,
+        chapterId,
+        chapters[index].number,
+        updates.content,
+        chapters
+      )
     }
     
     this.saveChapters(projectId, chapters)
@@ -221,6 +234,42 @@ class ChapterService {
       backgroundEventCount: chapter.backgroundEvents.length,
       foreshadowingCount: chapter.state.foreshadowing.length
     }
+  }
+
+  // 伏線の健全性レポートを生成
+  async getForeshadowingReport(projectId: string) {
+    const project = await projectService.getProject(projectId)
+    const chapters = await this.getChapters(projectId)
+    
+    if (!project) {
+      return {
+        totalCount: 0,
+        plantedCount: 0,
+        reinforcedCount: 0,
+        revealedCount: 0,
+        overdueCount: 0,
+        healthIssues: [],
+        recommendations: []
+      }
+    }
+    
+    return ForeshadowingTrackerService.generateForeshadowingReport(project, chapters)
+  }
+
+  // 次の章で回収すべき伏線を提案
+  async suggestForeshadowingForNextChapter(projectId: string, nextChapterNumber: number) {
+    const project = await projectService.getProject(projectId)
+    const chapters = await this.getChapters(projectId)
+    
+    if (!project || !project.chapterStructure) {
+      return []
+    }
+    
+    return ForeshadowingTrackerService.suggestForeshadowingForNextChapter(
+      chapters,
+      nextChapterNumber,
+      project.chapterStructure.totalChapters
+    )
   }
 
   private saveChapters(projectId: string, chapters: Chapter[]): void {

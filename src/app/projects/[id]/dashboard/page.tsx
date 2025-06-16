@@ -11,8 +11,10 @@ import { WorldMapService } from '@/lib/services/world-map-service'
 import Button from '@/components/ui/Button'
 import { useAppStore } from '@/lib/store'
 import { countCharacters } from '@/lib/utils'
+import { calculateForeshadowingScopeRanges, isForeshadowingOverdue } from '@/lib/utils/foreshadowing-utils'
 import AIAssistant from '@/components/dashboard/AIAssistant'
 import WritingNotes from '@/components/collaboration/WritingNotes'
+import ForeshadowingHealthReport from '@/components/dashboard/ForeshadowingHealthReport'
 
 type TabType = 'overview' | 'state' | 'timeline' | 'foreshadowing' | 'characters' | 'plot'
 
@@ -217,7 +219,7 @@ export default function ProjectDashboard() {
             <TimelineTab chapters={chapters} />
           )}
           {activeTab === 'foreshadowing' && (
-            <ForeshadowingTab chapters={chapters} />
+            <ForeshadowingTab chapters={chapters} projectId={projectId} />
           )}
           {activeTab === 'characters' && (
             <CharacterOverviewTab characters={characters} chapters={chapters} />
@@ -810,13 +812,19 @@ function TimelineTab({ chapters }: { chapters: Chapter[] }) {
 }
 
 // 伏線タブ
-function ForeshadowingTab({ chapters }: { chapters: Chapter[] }) {
+function ForeshadowingTab({ chapters, projectId }: { chapters: Chapter[]; projectId: string }) {
+  // 総章数を計算（最大の章番号）
+  const totalChapters = Math.max(...chapters.map(c => c.number), 10)
+  const currentChapter = Math.max(...chapters.map(c => c.number), 1)
+  const scopeRanges = calculateForeshadowingScopeRanges(totalChapters)
+  
   // すべての伏線を集約
   const allForeshadowing: {
     foreshadowing: any
     plantedChapter: number
     revealedChapter?: number
     chapters: number[] // 言及された章
+    isOverdue?: boolean
   }[] = []
 
   chapters.forEach(chapter => {
@@ -828,11 +836,13 @@ function ForeshadowingTab({ chapters }: { chapters: Chapter[] }) {
           existing.revealedChapter = chapter.number
         }
       } else {
+        const isOverdue = isForeshadowingOverdue(f, currentChapter)
         allForeshadowing.push({
           foreshadowing: f,
           plantedChapter: chapter.number,
           revealedChapter: f.status === 'revealed' ? chapter.number : undefined,
-          chapters: [chapter.number]
+          chapters: [chapter.number],
+          isOverdue
         })
       }
     })
@@ -864,6 +874,9 @@ function ForeshadowingTab({ chapters }: { chapters: Chapter[] }) {
 
   return (
     <div className="space-y-6">
+      {/* 伏線健全性レポート */}
+      <ForeshadowingHealthReport projectId={projectId} />
+      
       {/* 伏線統計 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
@@ -932,12 +945,19 @@ function ForeshadowingTab({ chapters }: { chapters: Chapter[] }) {
                         : '未回収'}
                     </span>
                     
+                    {/* 期限切れ警告 */}
+                    {item.isOverdue && (
+                      <span className="text-xs px-2 py-1 bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 rounded-full">
+                        ⚠️ 期限切れ
+                      </span>
+                    )}
+                    
                     {/* スコープと重要度の表示 */}
                     {item.foreshadowing.scope && (
                       <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full">
-                        {item.foreshadowing.scope === 'short' ? '短期' 
-                          : item.foreshadowing.scope === 'medium' ? '中期' 
-                          : '長期'}
+                        {item.foreshadowing.scope === 'short' ? scopeRanges.short.label.split('（')[0]
+                          : item.foreshadowing.scope === 'medium' ? scopeRanges.medium.label.split('（')[0]
+                          : scopeRanges.long.label.split('（')[0]}
                       </span>
                     )}
                     
