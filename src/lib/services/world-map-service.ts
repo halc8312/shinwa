@@ -339,7 +339,7 @@ export class WorldMapService {
       
       while (visited.size < locations.length) {
         // 訪問済みの都市から未訪問の都市への全ての辺を計算
-        for (const visitedId of visited) {
+        for (const visitedId of Array.from(visited)) {
           const visitedLoc = locations.find(l => l.id === visitedId)
           
           for (const loc of locations) {
@@ -1299,7 +1299,7 @@ export class WorldMapService {
       let current = ''
       let minFScore = Infinity
       
-      for (const node of openSet) {
+      for (const node of Array.from(openSet)) {
         const score = fScore.get(node) || Infinity
         if (score < minFScore) {
           minFScore = score
