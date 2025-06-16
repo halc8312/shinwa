@@ -1,6 +1,5 @@
 import { Chapter, Foreshadowing } from '@/lib/types'
 import { aiManager } from '@/lib/ai/manager'
-import { getFeatureModelSettings } from '@/lib/utils/ai-settings'
 
 export interface ForeshadowingResolutionValidation {
   foreshadowingHint: string
@@ -24,8 +23,6 @@ export class ForeshadowingResolutionValidator {
       return []
     }
 
-    const modelSettings = getFeatureModelSettings('chapterGeneration', aiModel)
-    
     // 各伏線の詳細情報を取得
     const foreshadowingMap = new Map<string, Foreshadowing>()
     foreshadowingDetails.forEach(f => {
@@ -69,7 +66,7 @@ ${plannedResolutions.map(hint => {
 
     try {
       const response = await aiManager.complete({
-        model: modelSettings.model,
+        model: aiModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
