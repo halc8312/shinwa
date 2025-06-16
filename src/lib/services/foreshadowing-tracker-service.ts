@@ -1,6 +1,7 @@
 import { Chapter, Foreshadowing, Project } from '@/lib/types'
 import { chapterService } from './chapter-service'
 import { checkForeshadowingHealth, calculateForeshadowingScopeRanges, isForeshadowingOverdue } from '@/lib/utils/foreshadowing-utils'
+import { ForeshadowingResolutionValidator } from './foreshadowing-resolution-validator'
 
 interface ForeshadowingReport {
   totalCount: number
@@ -83,19 +84,16 @@ export class ForeshadowingTrackerService {
         }
         // 回収予定を過ぎている場合
         else if (f.plannedRevealChapter && currentChapterNumber > f.plannedRevealChapter) {
-          // ヒントのキーワードが本文に含まれているかチェック
-          const hintKeywords = f.hint.toLowerCase().split(/\s+/)
-          const keywordMatches = hintKeywords.filter(keyword => 
-            keyword.length > 2 && contentLower.includes(keyword)
-          ).length
+          // より正確な検証を実施
+          const quickCheck = ForeshadowingResolutionValidator.quickCheck(chapterContent, f.hint)
           
-          if (keywordMatches >= hintKeywords.length * 0.5) {
+          if (quickCheck.likelyResolved) {
             candidates.push({
               foreshadowing: f,
               chapterId: chapter.id,
               chapterNumber: chapter.number,
-              reason: '回収予定を過ぎており、関連キーワードが本文に含まれる',
-              confidence: 'medium'
+              reason: '回収予定を過ぎており、関連内容が本文に含まれる',
+              confidence: quickCheck.keywordMatches >= 3 ? 'high' : 'medium'
             })
           }
         }
@@ -231,6 +229,73 @@ export class ForeshadowingTrackerService {
     })
 
     return relationships
+  }
+
+  /**
+   * 章生成後の伏線回収検証と調整
+   */
+  static async validateAndAdjustForeshadowing(
+    projectId: string,
+    chapterId: string,
+    chapterContent: string,
+    chapterPlan: any,
+    chapters: Chapter[],
+    aiModel: string
+  ): Promise<{ adjustments: string[]; warnings: string[] }> {
+    const adjustments: string[] = []
+    const warnings: string[] = []
+    
+    if (!chapterPlan?.foreshadowingToResolve || chapterPlan.foreshadowingToResolve.length === 0) {
+      return { adjustments, warnings }
+    }
+
+    // すべての伏線を収集
+    const allForeshadowing: Foreshadowing[] = []
+    chapters.forEach(chapter => {
+      chapter.state.foreshadowing?.forEach(f => {
+        if (!allForeshadowing.some(existing => existing.id === f.id)) {
+          allForeshadowing.push(f)
+        }
+      })
+    })
+
+    // AI検証を実施
+    const validations = await ForeshadowingResolutionValidator.validateResolutions(
+      chapterContent,
+      chapterPlan.foreshadowingToResolve,
+      allForeshadowing,
+      aiModel
+    )
+
+    // 検証結果に基づいて調整
+    for (const validation of validations) {
+      if (!validation.wasResolved) {
+        const foreshadowing = allForeshadowing.find(f => f.hint === validation.foreshadowingHint)
+        
+        if (foreshadowing) {
+          if (validation.confidence === 'none') {
+            warnings.push(
+              `伏線「${validation.foreshadowingHint}」は回収予定でしたが、本文中で確認できませんでした。` +
+              (validation.suggestion ? ` ${validation.suggestion}` : '')
+            )
+            
+            // 重要度が高い場合は次章での回収を強く推奨
+            if (foreshadowing.significance === 'major') {
+              adjustments.push(`重要な伏線「${validation.foreshadowingHint}」を次章で必ず回収してください`)
+            }
+          } else if (validation.confidence === 'low') {
+            warnings.push(
+              `伏線「${validation.foreshadowingHint}」の回収が不十分です。` +
+              (validation.suggestion ? ` ${validation.suggestion}` : '')
+            )
+          }
+        }
+      } else {
+        adjustments.push(`伏線「${validation.foreshadowingHint}」が正常に回収されました`)
+      }
+    }
+
+    return { adjustments, warnings }
   }
 
   /**
