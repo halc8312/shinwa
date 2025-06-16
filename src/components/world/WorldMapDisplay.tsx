@@ -102,7 +102,7 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
     const { worldMap } = worldMapSystem
     
     return (
-      <div className="relative w-full h-[600px] bg-gradient-to-b from-blue-100 to-blue-200 dark:from-gray-800 dark:to-gray-900 rounded-lg overflow-hidden">
+      <div className="relative w-full h-[400px] sm:h-[500px] md:h-[600px] bg-gradient-to-b from-blue-100 to-blue-200 dark:from-gray-800 dark:to-gray-900 rounded-lg overflow-hidden">
         {/* Enhanced terrain background */}
         <svg className="absolute inset-0 w-full h-full">
           <defs>
@@ -264,10 +264,10 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
             onClick={() => setSelectedLocation(location)}
           >
             <div className="flex flex-col items-center">
-              <div className="bg-white dark:bg-gray-800 rounded-full p-2 shadow-lg">
-                <span className="text-2xl">{getLocationIcon(location.type)}</span>
+              <div className="bg-white dark:bg-gray-800 rounded-full p-1 md:p-2 shadow-lg">
+                <span className="text-lg md:text-2xl">{getLocationIcon(location.type)}</span>
               </div>
-              <span className="text-xs mt-1 bg-white dark:bg-gray-700 px-2 py-1 rounded shadow-md font-medium">
+              <span className="text-[10px] md:text-xs mt-1 bg-white dark:bg-gray-700 px-1 md:px-2 py-0.5 md:py-1 rounded shadow-md font-medium max-w-[80px] md:max-w-none truncate">
                 {location.name}
               </span>
             </div>
@@ -282,7 +282,7 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
     // 地域データの存在チェック
     if (!worldMapSystem.regions || worldMapSystem.regions.length === 0) {
       return (
-        <div className="flex items-center justify-center h-[600px] text-gray-500 dark:text-gray-400">
+        <div className="flex items-center justify-center h-[400px] sm:h-[500px] md:h-[600px] text-gray-500 dark:text-gray-400">
           <div className="text-center">
             <p className="text-lg mb-2">地域データがありません</p>
             <p className="text-sm">まだ地域マップが生成されていない可能性があります</p>
@@ -297,7 +297,7 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
     
     if (!region) {
       return (
-        <div className="flex items-center justify-center h-[600px] text-gray-500 dark:text-gray-400">
+        <div className="flex items-center justify-center h-[400px] sm:h-[500px] md:h-[600px] text-gray-500 dark:text-gray-400">
           No regions available
         </div>
       )
@@ -326,7 +326,7 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
         </div>
         
         {/* Region map */}
-        <div className="relative w-full h-[600px] bg-gradient-to-br from-green-100 to-emerald-200 dark:from-gray-800 dark:to-gray-900 rounded-lg overflow-hidden">
+        <div className="relative w-full h-[400px] sm:h-[500px] md:h-[600px] bg-gradient-to-br from-green-100 to-emerald-200 dark:from-gray-800 dark:to-gray-900 rounded-lg overflow-hidden">
           {/* Enhanced terrain for regions */}
           <svg className="absolute inset-0 w-full h-full">
             <defs>
@@ -429,13 +429,15 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
             {/* Render regional connections with better paths */}
             {worldMapSystem.connections
               .filter(conn => {
-                const fromLoc = region.locations.find(l => l.id === conn.fromLocationId)
-                const toLoc = region.locations.find(l => l.id === conn.toLocationId)
+                const locations = region.locations || []
+                const fromLoc = locations.find(l => l.id === conn.fromLocationId)
+                const toLoc = locations.find(l => l.id === conn.toLocationId)
                 return fromLoc && toLoc
               })
               .map(connection => {
-                const fromLoc = region.locations.find(l => l.id === connection.fromLocationId)
-                const toLoc = region.locations.find(l => l.id === connection.toLocationId)
+                const locations = region.locations || []
+                const fromLoc = locations.find(l => l.id === connection.fromLocationId)
+                const toLoc = locations.find(l => l.id === connection.toLocationId)
                 
                 if (!fromLoc || !toLoc) return null
                 
@@ -498,10 +500,10 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
               onClick={() => setSelectedLocation(location)}
             >
               <div className="flex flex-col items-center">
-                <div className="bg-white dark:bg-gray-800 rounded-full p-1.5 shadow-lg">
-                  <span className="text-xl">{getLocationIcon(location.type)}</span>
+                <div className="bg-white dark:bg-gray-800 rounded-full p-1 md:p-1.5 shadow-lg">
+                  <span className="text-base md:text-xl">{getLocationIcon(location.type)}</span>
                 </div>
-                <span className="text-xs mt-1 bg-white dark:bg-gray-700 px-2 py-0.5 rounded shadow-md font-medium">
+                <span className="text-[10px] md:text-xs mt-1 bg-white dark:bg-gray-700 px-1 md:px-2 py-0.5 rounded shadow-md font-medium max-w-[80px] md:max-w-none truncate">
                   {location.name}
                 </span>
               </div>
@@ -527,12 +529,12 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
         
         <div className="grid gap-4">
           {worldMapSystem.connections.map(connection => {
-            const fromLoc = [...worldMapSystem.worldMap.locations, 
-              ...worldMapSystem.regions.flatMap(r => r.locations)]
-              .find(l => l.id === connection.fromLocationId)
-            const toLoc = [...worldMapSystem.worldMap.locations,
-              ...worldMapSystem.regions.flatMap(r => r.locations)]
-              .find(l => l.id === connection.toLocationId)
+            const allLocations = [
+              ...worldMapSystem.worldMap.locations,
+              ...(worldMapSystem.regions?.flatMap(r => r.locations || []) || [])
+            ]
+            const fromLoc = allLocations.find(l => l.id === connection.fromLocationId)
+            const toLoc = allLocations.find(l => l.id === connection.toLocationId)
             
             if (!fromLoc || !toLoc) return null
             
@@ -602,33 +604,36 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
         <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
           <button
             onClick={() => setSelectedView('world')}
-            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+            className={`flex-1 px-2 md:px-4 py-2 rounded-md font-medium transition-colors text-sm md:text-base ${
               selectedView === 'world'
                 ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
             }`}
           >
-            World View
+            <span className="hidden sm:inline">World View</span>
+            <span className="sm:hidden">World</span>
           </button>
           <button
             onClick={() => setSelectedView('region')}
-            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+            className={`flex-1 px-2 md:px-4 py-2 rounded-md font-medium transition-colors text-sm md:text-base ${
               selectedView === 'region'
                 ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
             }`}
           >
-            Region View
+            <span className="hidden sm:inline">Region View</span>
+            <span className="sm:hidden">Region</span>
           </button>
           <button
             onClick={() => setSelectedView('connections')}
-            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+            className={`flex-1 px-2 md:px-4 py-2 rounded-md font-medium transition-colors text-sm md:text-base ${
               selectedView === 'connections'
                 ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
             }`}
           >
-            Connections
+            <span className="hidden sm:inline">Connections</span>
+            <span className="sm:hidden">Travel</span>
           </button>
         </div>
       </div>
@@ -667,9 +672,9 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
 
       {/* Location details modal */}
       {selectedLocation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedLocation(null)}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4"
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 md:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
@@ -743,9 +748,11 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
                   {getLocationConnections(selectedLocation.id).map(conn => {
                     const otherLocId = conn.fromLocationId === selectedLocation.id 
                       ? conn.toLocationId : conn.fromLocationId
-                    const otherLoc = [...worldMapSystem.worldMap.locations,
-                      ...worldMapSystem.regions.flatMap(r => r.locations)]
-                      .find(l => l.id === otherLocId)
+                    const allLocations = [
+                      ...worldMapSystem.worldMap.locations,
+                      ...(worldMapSystem.regions?.flatMap(r => r.locations || []) || [])
+                    ]
+                    const otherLoc = allLocations.find(l => l.id === otherLocId)
                     
                     if (!otherLoc) return null
                     
