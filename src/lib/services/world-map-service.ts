@@ -255,12 +255,12 @@ export class WorldMapService {
     const processedPairs = new Set<string>()
 
     // 地形を考慮した接続可能性をチェック
-    const canConnect = (loc1: any, loc2: any, worldMap: WorldMap): { canConnect: boolean; difficulty: string; type: string } => {
+    const canConnect = (loc1: any, loc2: any, worldMap: WorldMap): { canConnect: boolean; difficulty: 'easy' | 'moderate' | 'difficult' | 'dangerous'; type: 'road' | 'path' | 'river' | 'sea_route' | 'air_route' | 'magical' } => {
       const distance = this.calculateDistance(loc1.coordinates, loc2.coordinates)
       
       // 地形の影響を確認
-      let terrainDifficulty = 'easy'
-      let connectionType = 'road'
+      let terrainDifficulty: 'easy' | 'moderate' | 'difficult' | 'dangerous' = 'easy'
+      let connectionType: 'road' | 'path' | 'river' | 'sea_route' | 'air_route' | 'magical' = 'road'
       
       // 地理的特徴を確認
       for (const feature of worldMap.geography || []) {
@@ -371,7 +371,7 @@ export class WorldMapService {
               toLocationId: edge.to.id,
               bidirectional: true,
               connectionType: edge.type,
-              difficulty: edge.difficulty as any,
+              difficulty: edge.difficulty,
               description: `${edge.from.name}と${edge.to.name}を結ぶ${edge.type === 'road' ? '街道' : '道'}`
             })
             added = true
