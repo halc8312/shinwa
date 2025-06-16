@@ -332,7 +332,7 @@ export class WorldMapService {
       
       const mstConnections: MapConnection[] = []
       const visited = new Set<string>()
-      const edges: Array<{ from: any; to: any; distance: number; difficulty: string; type: string }> = []
+      const edges: Array<{ from: any; to: any; distance: number; difficulty: 'easy' | 'moderate' | 'difficult' | 'dangerous'; type: 'road' | 'path' | 'river' | 'sea_route' | 'air_route' | 'magical' }> = []
       
       // 最初の都市から開始
       visited.add(locations[0].id)
@@ -423,8 +423,8 @@ export class WorldMapService {
               fromLocationId: majorCities[i].id,
               toLocationId: majorCities[j].id,
               bidirectional: true,
-              connectionType: connectionInfo.type as any,
-              difficulty: connectionInfo.difficulty as any,
+              connectionType: connectionInfo.type,
+              difficulty: connectionInfo.difficulty,
               description: `${majorCities[i].name}と${majorCities[j].name}を結ぶ交易路`
             })
           }
