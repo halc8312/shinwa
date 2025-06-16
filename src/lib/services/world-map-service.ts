@@ -245,62 +245,236 @@ export class WorldMapService {
   }
 
   /**
-   * 接続関係を生成
+   * 接続関係を生成（改良版）
    */
   private generateConnections(
     worldMap: WorldMap,
     regions: RegionMap[]
   ): MapConnection[] {
     const connections: MapConnection[] = []
+    const processedPairs = new Set<string>()
+
+    // 地形を考慮した接続可能性をチェック
+    const canConnect = (loc1: any, loc2: any, worldMap: WorldMap): { canConnect: boolean; difficulty: string; type: string } => {
+      const distance = this.calculateDistance(loc1.coordinates, loc2.coordinates)
+      
+      // 地形の影響を確認
+      let terrainDifficulty = 'easy'
+      let connectionType = 'road'
+      
+      // 地理的特徴を確認
+      for (const feature of worldMap.geography || []) {
+        // 山脈が間にある場合
+        if (feature.type === 'mountain') {
+          const betweenMountain = this.isLineCrossingArea(
+            loc1.coordinates, 
+            loc2.coordinates, 
+            feature.area
+          )
+          if (betweenMountain) {
+            terrainDifficulty = 'difficult'
+            connectionType = 'path' // 山道
+          }
+        }
+        
+        // 河川が間にある場合
+        if (feature.type === 'river') {
+          const crossingRiver = this.isLineCrossingArea(
+            loc1.coordinates,
+            loc2.coordinates,
+            feature.area
+          )
+          if (crossingRiver) {
+            // 橋が必要
+            if (terrainDifficulty === 'easy') {
+              terrainDifficulty = 'moderate'
+            }
+          }
+        }
+        
+        // 砂漠を通る場合
+        if (feature.type === 'desert') {
+          const throughDesert = this.isLineCrossingArea(
+            loc1.coordinates,
+            loc2.coordinates,
+            feature.area
+          )
+          if (throughDesert) {
+            terrainDifficulty = 'dangerous'
+            connectionType = 'path'
+          }
+        }
+      }
+      
+      // 距離による制限
+      if (distance > 50) {
+        return { canConnect: false, difficulty: terrainDifficulty, type: connectionType }
+      }
+      
+      // 近距離は道路、中距離は道、遠距離は困難な道
+      if (distance <= 15) {
+        connectionType = 'road'
+      } else if (distance <= 30) {
+        connectionType = connectionType === 'road' ? 'road' : 'path'
+      } else {
+        connectionType = 'path'
+        if (terrainDifficulty === 'easy') {
+          terrainDifficulty = 'moderate'
+        }
+      }
+      
+      return { canConnect: true, difficulty: terrainDifficulty, type: connectionType }
+    }
+
+    // 最小全域木アルゴリズム（Primのアルゴリズム）を使用して効率的な道路網を構築
+    const createMinimumSpanningTree = (locations: any[]): MapConnection[] => {
+      if (locations.length < 2) return []
+      
+      const mstConnections: MapConnection[] = []
+      const visited = new Set<string>()
+      const edges: Array<{ from: any; to: any; distance: number; difficulty: string; type: string }> = []
+      
+      // 最初の都市から開始
+      visited.add(locations[0].id)
+      
+      while (visited.size < locations.length) {
+        // 訪問済みの都市から未訪問の都市への全ての辺を計算
+        for (const visitedId of visited) {
+          const visitedLoc = locations.find(l => l.id === visitedId)
+          
+          for (const loc of locations) {
+            if (!visited.has(loc.id)) {
+              const connectionInfo = canConnect(visitedLoc, loc, worldMap)
+              if (connectionInfo.canConnect) {
+                edges.push({
+                  from: visitedLoc,
+                  to: loc,
+                  distance: this.calculateDistance(visitedLoc.coordinates, loc.coordinates),
+                  difficulty: connectionInfo.difficulty,
+                  type: connectionInfo.type
+                })
+              }
+            }
+          }
+        }
+        
+        // 最短の辺を選択
+        edges.sort((a, b) => a.distance - b.distance)
+        let added = false
+        
+        for (const edge of edges) {
+          if (visited.has(edge.from.id) && !visited.has(edge.to.id)) {
+            visited.add(edge.to.id)
+            mstConnections.push({
+              id: generateId(),
+              fromLocationId: edge.from.id,
+              toLocationId: edge.to.id,
+              bidirectional: true,
+              connectionType: edge.type,
+              difficulty: edge.difficulty as any,
+              description: `${edge.from.name}と${edge.to.name}を結ぶ${edge.type === 'road' ? '街道' : '道'}`
+            })
+            added = true
+            break
+          }
+        }
+        
+        // 接続できない場合は終了
+        if (!added) break
+        
+        // 使用済みの辺をクリア
+        edges.length = 0
+      }
+      
+      return mstConnections
+    }
 
     // 世界レベルの接続（主要都市間）
     const majorCities = worldMap.locations.filter(
-      loc => loc.type === 'capital' || loc.type === 'major_city'
+      loc => loc.type === 'capital' || loc.type === 'major_city' || loc.type === 'country'
     )
-
+    
+    // 最小全域木で基本的な道路網を構築
+    const worldConnections = createMinimumSpanningTree(majorCities)
+    connections.push(...worldConnections)
+    
+    // 追加の重要な接続を作成（交易路など）
     for (let i = 0; i < majorCities.length; i++) {
       for (let j = i + 1; j < majorCities.length; j++) {
+        const pairKey = `${majorCities[i].id}-${majorCities[j].id}`
+        if (processedPairs.has(pairKey)) continue
+        
+        const connectionInfo = canConnect(majorCities[i], majorCities[j], worldMap)
         const distance = this.calculateDistance(
           majorCities[i].coordinates,
           majorCities[j].coordinates
         )
-
-        // 距離が30以下なら道路接続
-        if (distance <= 30) {
-          connections.push({
-            id: generateId(),
-            fromLocationId: majorCities[i].id,
-            toLocationId: majorCities[j].id,
-            bidirectional: true,
-            connectionType: 'road',
-            difficulty: 'easy',
-            description: `${majorCities[i].name}と${majorCities[j].name}を結ぶ街道`
-          })
+        
+        // 近い都市間で、まだ接続されていない場合は追加接続を作成
+        if (connectionInfo.canConnect && distance <= 25) {
+          const existingConnection = connections.find(
+            c => (c.fromLocationId === majorCities[i].id && c.toLocationId === majorCities[j].id) ||
+                 (c.fromLocationId === majorCities[j].id && c.toLocationId === majorCities[i].id)
+          )
+          
+          if (!existingConnection) {
+            connections.push({
+              id: generateId(),
+              fromLocationId: majorCities[i].id,
+              toLocationId: majorCities[j].id,
+              bidirectional: true,
+              connectionType: connectionInfo.type as any,
+              difficulty: connectionInfo.difficulty as any,
+              description: `${majorCities[i].name}と${majorCities[j].name}を結ぶ交易路`
+            })
+          }
         }
+        
+        processedPairs.add(pairKey)
       }
     }
 
     // 地域レベルの接続
     for (const region of regions) {
       const locations = region.locations.filter(
-        loc => loc.type === 'city' || loc.type === 'town'
+        loc => loc.type === 'city' || loc.type === 'town' || loc.type === 'village'
       )
-
-      for (let i = 0; i < locations.length; i++) {
-        for (let j = i + 1; j < locations.length; j++) {
-          const distance = this.calculateDistance(
-            locations[i].coordinates,
-            locations[j].coordinates
+      
+      // 地域内の最小全域木
+      const regionConnections = createMinimumSpanningTree(locations)
+      connections.push(...regionConnections)
+      
+      // 村から最寄りの町への接続を確保
+      const villages = region.locations.filter(loc => loc.type === 'village')
+      const towns = region.locations.filter(loc => loc.type === 'town' || loc.type === 'city')
+      
+      for (const village of villages) {
+        let nearestTown = null
+        let minDistance = Infinity
+        
+        for (const town of towns) {
+          const distance = this.calculateDistance(village.coordinates, town.coordinates)
+          if (distance < minDistance) {
+            minDistance = distance
+            nearestTown = town
+          }
+        }
+        
+        if (nearestTown && minDistance <= 15) {
+          const existingConnection = connections.find(
+            c => (c.fromLocationId === village.id && c.toLocationId === nearestTown.id) ||
+                 (c.fromLocationId === nearestTown.id && c.toLocationId === village.id)
           )
-
-          if (distance <= 20) {
+          
+          if (!existingConnection) {
             connections.push({
               id: generateId(),
-              fromLocationId: locations[i].id,
-              toLocationId: locations[j].id,
+              fromLocationId: village.id,
+              toLocationId: nearestTown.id,
               bidirectional: true,
-              connectionType: distance <= 10 ? 'road' : 'path',
-              difficulty: distance <= 10 ? 'easy' : 'moderate'
+              connectionType: 'path',
+              difficulty: 'easy',
+              description: `${village.name}から${nearestTown.name}への小道`
             })
           }
         }
@@ -308,6 +482,24 @@ export class WorldMapService {
     }
 
     return connections
+  }
+  
+  /**
+   * 線分が領域と交差するかチェック
+   */
+  private isLineCrossingArea(
+    point1: { x: number; y: number },
+    point2: { x: number; y: number },
+    area: { topLeft: { x: number; y: number }; bottomRight: { x: number; y: number } }
+  ): boolean {
+    // 簡易的な実装：線分の中点が領域内にあるかチェック
+    const midX = (point1.x + point2.x) / 2
+    const midY = (point1.y + point2.y) / 2
+    
+    return midX >= area.topLeft.x && 
+           midX <= area.bottomRight.x && 
+           midY >= area.topLeft.y && 
+           midY <= area.bottomRight.y
   }
 
   /**
@@ -1035,7 +1227,7 @@ export class WorldMapService {
       return null
     }
 
-    // 接続を検索
+    // 直接接続を検索
     const connection = worldMapSystem.connections.find(
       conn => (
         (conn.fromLocationId === fromId && conn.toLocationId === toId) ||
@@ -1043,24 +1235,327 @@ export class WorldMapService {
       )
     )
 
-    if (!connection) {
-      return null
+    if (connection) {
+      // 既存の道路での移動時間
+      const travelTime = worldMapSystem.travelTimes.find(
+        tt => tt.connectionId === connection.id && tt.travelMethod.type === travelMethod
+      )
+
+      if (travelTime) {
+        const hours = Math.round(travelTime.baseTime / 60)
+        if (hours < 24) {
+          return { time: hours, unit: '時間' }
+        } else {
+          return { time: Math.round(hours / 24), unit: '日' }
+        }
+      }
     }
 
-    // 移動時間を取得
-    const travelTime = worldMapSystem.travelTimes.find(
-      tt => tt.connectionId === connection.id && tt.travelMethod.type === travelMethod
+    // 道路がない場合は、パスファインディングで経路を探す
+    const route = await this.findPathBetweenLocations(fromId, toId, worldMapSystem, travelMethod)
+    if (route && route.totalTime > 0) {
+      const hours = Math.round(route.totalTime / 60)
+      if (hours < 24) {
+        return { time: hours, unit: '時間' }
+      } else {
+        return { time: Math.round(hours / 24), unit: '日' }
+      }
+    }
+
+    return null
+  }
+  
+  /**
+   * A*アルゴリズムを使用したパスファインディング
+   */
+  async findPathBetweenLocations(
+    fromId: string,
+    toId: string,
+    worldMapSystem: WorldMapSystem,
+    travelMethod: string = 'walk'
+  ): Promise<{ path: string[]; totalTime: number; connections: MapConnection[]; requiresOffRoad: boolean } | null> {
+    // 全ての場所を取得
+    const allLocations = [
+      ...worldMapSystem.worldMap.locations,
+      ...worldMapSystem.regions.flatMap(r => r.locations)
+    ]
+    
+    const fromLoc = allLocations.find(l => l.id === fromId)
+    const toLoc = allLocations.find(l => l.id === toId)
+    
+    if (!fromLoc || !toLoc) return null
+    
+    // A*アルゴリズムのための初期化
+    const openSet = new Set<string>([fromId])
+    const cameFrom = new Map<string, string>()
+    const gScore = new Map<string, number>()
+    const fScore = new Map<string, number>()
+    
+    gScore.set(fromId, 0)
+    fScore.set(fromId, this.heuristic(fromLoc, toLoc))
+    
+    while (openSet.size > 0) {
+      // fScoreが最小のノードを選択
+      let current = ''
+      let minFScore = Infinity
+      
+      for (const node of openSet) {
+        const score = fScore.get(node) || Infinity
+        if (score < minFScore) {
+          minFScore = score
+          current = node
+        }
+      }
+      
+      if (current === toId) {
+        // パスを再構築
+        const path: string[] = []
+        let node = toId
+        
+        while (node !== fromId) {
+          path.unshift(node)
+          node = cameFrom.get(node) || ''
+        }
+        path.unshift(fromId)
+        
+        // 実際の接続を取得し、総時間を計算
+        let totalTime = 0
+        const connections: MapConnection[] = []
+        let requiresOffRoad = false
+        
+        for (let i = 0; i < path.length - 1; i++) {
+          const connection = worldMapSystem.connections.find(
+            c => (c.fromLocationId === path[i] && c.toLocationId === path[i + 1]) ||
+                 (c.bidirectional && c.fromLocationId === path[i + 1] && c.toLocationId === path[i])
+          )
+          
+          if (connection) {
+            connections.push(connection)
+            const travelTime = worldMapSystem.travelTimes.find(
+              tt => tt.connectionId === connection.id && tt.travelMethod.type === travelMethod
+            )
+            totalTime += travelTime?.baseTime || 60
+          } else {
+            // 道路がない場合の処理
+            requiresOffRoad = true
+            const fromLocation = allLocations.find(l => l.id === path[i])
+            const toLocation = allLocations.find(l => l.id === path[i + 1])
+            
+            if (fromLocation && toLocation) {
+              const distance = this.calculateDistance(fromLocation.coordinates, toLocation.coordinates)
+              const offRoadTime = await this.calculateOffRoadTravelTime(
+                fromLocation,
+                toLocation,
+                travelMethod,
+                worldMapSystem
+              )
+              totalTime += offRoadTime
+            }
+          }
+        }
+        
+        return { path, totalTime, connections, requiresOffRoad }
+      }
+      
+      openSet.delete(current)
+      
+      // 隣接ノードを探索
+      const currentLoc = allLocations.find(l => l.id === current)
+      if (!currentLoc) continue
+      
+      // 接続されている場所を取得
+      const neighbors = this.getNeighbors(current, worldMapSystem, allLocations)
+      
+      for (const neighbor of neighbors) {
+        const tentativeGScore = (gScore.get(current) || Infinity) + neighbor.cost
+        
+        if (tentativeGScore < (gScore.get(neighbor.id) || Infinity)) {
+          cameFrom.set(neighbor.id, current)
+          gScore.set(neighbor.id, tentativeGScore)
+          
+          const neighborLoc = allLocations.find(l => l.id === neighbor.id)
+          if (neighborLoc) {
+            fScore.set(neighbor.id, tentativeGScore + this.heuristic(neighborLoc, toLoc))
+          }
+          
+          openSet.add(neighbor.id)
+        }
+      }
+    }
+    
+    return null // パスが見つからない
+  }
+  
+  /**
+   * ヒューリスティック関数（推定コスト）
+   */
+  private heuristic(from: any, to: any): number {
+    return this.calculateDistance(from.coordinates, to.coordinates)
+  }
+  
+  /**
+   * 隣接ノードを取得
+   */
+  private getNeighbors(
+    nodeId: string,
+    worldMapSystem: WorldMapSystem,
+    allLocations: any[]
+  ): Array<{ id: string; cost: number }> {
+    const neighbors: Array<{ id: string; cost: number }> = []
+    
+    // 既存の接続から隣接ノードを取得
+    const connections = worldMapSystem.connections.filter(
+      c => c.fromLocationId === nodeId || 
+           (c.bidirectional && c.toLocationId === nodeId)
     )
-
-    if (!travelTime) {
-      return null
+    
+    for (const conn of connections) {
+      const neighborId = conn.fromLocationId === nodeId ? conn.toLocationId : conn.fromLocationId
+      const travelTime = worldMapSystem.travelTimes.find(
+        tt => tt.connectionId === conn.id && tt.travelMethod.type === 'walk'
+      )
+      
+      neighbors.push({
+        id: neighborId,
+        cost: travelTime?.baseTime || 60
+      })
     }
-
-    const hours = Math.round(travelTime.baseTime / 60)
-    if (hours < 24) {
-      return { time: hours, unit: '時間' }
-    } else {
-      return { time: Math.round(hours / 24), unit: '日' }
+    
+    // 道路がない場合でも、近くの場所への移動を考慮
+    const currentLoc = allLocations.find(l => l.id === nodeId)
+    if (currentLoc) {
+      for (const loc of allLocations) {
+        if (loc.id === nodeId) continue
+        
+        const distance = this.calculateDistance(currentLoc.coordinates, loc.coordinates)
+        
+        // 一定距離以内の場所は道なき道で移動可能とする
+        if (distance <= 20 && !neighbors.find(n => n.id === loc.id)) {
+          // 地形を考慮した道なき道の移動時間
+          const offRoadCost = distance * 20 // 道路より遅い
+          neighbors.push({
+            id: loc.id,
+            cost: offRoadCost
+          })
+        }
+      }
     }
+    
+    return neighbors
+  }
+  
+  /**
+   * 道なき道での移動時間を計算
+   */
+  private async calculateOffRoadTravelTime(
+    fromLocation: any,
+    toLocation: any,
+    travelMethod: string,
+    worldMapSystem: WorldMapSystem
+  ): Promise<number> {
+    const distance = this.calculateDistance(fromLocation.coordinates, toLocation.coordinates)
+    const modelSettings = getFeatureModelSettings(this.projectId, 'assistant')
+    
+    // 地形の影響を確認
+    let terrainMultiplier = 1.5 // 基本的に道路より1.5倍遅い
+    
+    for (const feature of worldMapSystem.worldMap.geography || []) {
+      if (this.isLineCrossingArea(fromLocation.coordinates, toLocation.coordinates, feature.area)) {
+        switch (feature.type) {
+          case 'mountain':
+            terrainMultiplier = 3.0 // 山岳地帯は3倍遅い
+            break
+          case 'forest':
+            terrainMultiplier = 2.0 // 森林は2倍遅い
+            break
+          case 'desert':
+            terrainMultiplier = 2.5 // 砂漠は2.5倍遅い
+            break
+          case 'river':
+            terrainMultiplier = 4.0 // 河川横断は非常に困難
+            break
+        }
+      }
+    }
+    
+    // 移動手段による速度
+    const baseSpeed = {
+      walk: 4,
+      horse: 20,
+      carriage: 5, // 道なき道では馬車は非常に遅い
+      flight: 60,
+      teleport: 1000
+    }[travelMethod] || 4
+    
+    // 世界スケールでの1単位を50kmと仮定
+    const worldScaleKm = 50
+    const distanceKm = distance * worldScaleKm
+    
+    const timeHours = (distanceKm / baseSpeed) * terrainMultiplier
+    return Math.round(timeHours * 60) // 分に変換
+  }
+  
+  /**
+   * 道なき道での移動についてAIに相談
+   */
+  async suggestAlternativeRoute(
+    fromLocation: string,
+    toLocation: string,
+    worldSettings: WorldSettings,
+    genre: string
+  ): Promise<{
+    method: string
+    description: string
+    estimatedTime: string
+    challenges: string[]
+  } | null> {
+    const modelSettings = getFeatureModelSettings(this.projectId, 'assistant')
+    
+    const messages: AIMessage[] = [
+      {
+        role: 'system',
+        content: `あなたは${genre}ファンタジー世界の旅行案内人です。
+道路が整備されていない場所間の移動方法を提案してください。`
+      },
+      {
+        role: 'user',
+        content: `${fromLocation}から${toLocation}へ移動する必要がありますが、整備された道路がありません。
+
+【世界設定】
+世界名: ${worldSettings.name}
+時代: ${worldSettings.era}
+地理: ${worldSettings.geography?.join('、') || '特に指定なし'}
+
+この世界観に適した移動方法を提案してください。
+
+以下の形式のJSONで回答してください：
+\`\`\`json
+{
+  "method": "移動方法（例：山道を通る、船で迂回する、魔法を使う）",
+  "description": "具体的な移動ルートの説明",
+  "estimatedTime": "推定所要時間",
+  "challenges": ["予想される困難や危険のリスト"]
+}
+\`\`\``
+      }
+    ]
+    
+    try {
+      const response = await aiManager.complete({
+        model: modelSettings.model,
+        messages,
+        temperature: 0.7,
+        maxTokens: 1000
+      })
+      
+      const jsonMatch = response.content.match(/```json\n([\s\S]*?)\n```/)
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[1])
+      }
+    } catch (error) {
+      console.error('Failed to suggest alternative route:', error)
+    }
+    
+    return null
   }
 }

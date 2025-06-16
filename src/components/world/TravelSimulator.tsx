@@ -40,6 +40,19 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
   const [showWarnings, setShowWarnings] = useState<boolean>(false)
   const [isSimulating, setIsSimulating] = useState<boolean>(false)
   const [simulationProgress, setSimulationProgress] = useState<number>(0)
+  const [routeInfo, setRouteInfo] = useState<{
+    connections: MapConnection[]
+    requiresOffRoad: boolean
+    totalTime: number
+    path: string[]
+    alternativeRoute?: {
+      method: string
+      description: string
+      estimatedTime: string
+      challenges: string[]
+    }
+  } | null>(null)
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState<boolean>(false)
 
   // Get all locations from world map and regions
   const allLocations = useMemo(() => {
@@ -99,7 +112,18 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
   }, [worldMapSystem, worldSettings, transportService])
 
   // Find the best route between two locations
-  const findRoute = (fromId: string, toId: string): MapConnection[] => {
+  const findRoute = async (fromId: string, toId: string): Promise<{
+    connections: MapConnection[]
+    requiresOffRoad: boolean
+    totalTime: number
+    path: string[]
+    alternativeRoute?: {
+      method: string
+      description: string
+      estimatedTime: string
+      challenges: string[]
+    }
+  }> => {
     // Simple direct connection search
     const directConnection = worldMapSystem.connections.find(
       conn => (
@@ -109,11 +133,59 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
     )
     
     if (directConnection) {
-      return [directConnection]
+      const travelTime = worldMapSystem.travelTimes.find(
+        tt => tt.connectionId === directConnection.id && tt.travelMethod.type === travelMethod
+      )
+      return {
+        connections: [directConnection],
+        requiresOffRoad: false,
+        totalTime: travelTime?.baseTime || 60,
+        path: [fromId, toId]
+      }
     }
     
-    // TODO: Implement pathfinding algorithm for multi-hop routes
-    return []
+    // パスファインディングを使用して経路を探す
+    const worldMapService = new WorldMapService(projectId)
+    const route = await worldMapService.findPathBetweenLocations(
+      fromId,
+      toId,
+      worldMapSystem,
+      travelMethod
+    )
+    
+    if (route) {
+      // 道なき道を含む場合、代替ルートの提案を取得
+      let alternativeRoute = undefined
+      if (route.requiresOffRoad && worldSettings) {
+        const fromLoc = findLocation(fromId)
+        const toLoc = findLocation(toId)
+        
+        if (fromLoc && toLoc) {
+          alternativeRoute = await worldMapService.suggestAlternativeRoute(
+            fromLoc.name,
+            toLoc.name,
+            worldSettings,
+            'ファンタジー' // TODO: プロジェクトのジャンルから取得
+          ) || undefined
+        }
+      }
+      
+      return {
+        connections: route.connections,
+        requiresOffRoad: route.requiresOffRoad,
+        totalTime: route.totalTime,
+        path: route.path,
+        alternativeRoute
+      }
+    }
+    
+    // 経路が見つからない場合
+    return {
+      connections: [],
+      requiresOffRoad: true,
+      totalTime: 0,
+      path: []
+    }
   }
 
   // Calculate total travel time
@@ -184,26 +256,41 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
       setCurrentLocationId(defaultLocation.id)
     }
   }
+  
+  // Calculate route when locations change
+  useEffect(() => {
+    const calculateRoute = async () => {
+      if (currentLocationId && destinationId && travelMethod) {
+        setIsCalculatingRoute(true)
+        try {
+          const route = await findRoute(currentLocationId, destinationId)
+          setRouteInfo(route)
+        } catch (error) {
+          console.error('Failed to calculate route:', error)
+          setRouteInfo(null)
+        } finally {
+          setIsCalculatingRoute(false)
+        }
+      }
+    }
+    
+    calculateRoute()
+  }, [currentLocationId, destinationId, travelMethod])
 
   // Simulate travel
   const simulateTravel = async () => {
-    if (!selectedCharacterId || !currentLocationId || !destinationId) {
+    if (!selectedCharacterId || !currentLocationId || !destinationId || !routeInfo) {
       return
     }
     
     setIsSimulating(true)
     setSimulationProgress(0)
     
-    // Find route
-    const route = findRoute(currentLocationId, destinationId)
-    if (route.length === 0) {
+    if (routeInfo.path.length === 0) {
       alert('この2地点間の経路が見つかりません')
       setIsSimulating(false)
       return
     }
-    
-    // Calculate travel time
-    const travelTime = calculateTravelTime(route, travelMethod)
     
     // Simulate progress
     const interval = setInterval(() => {
@@ -229,40 +316,30 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
 
   // Get route visualization data
   const routeVisualization = useMemo(() => {
-    if (!currentLocationId || !destinationId) return []
+    if (!routeInfo || routeInfo.path.length === 0) return []
     
-    const route = findRoute(currentLocationId, destinationId)
     const points: RoutePoint[] = []
     
-    route.forEach(connection => {
-      const fromLoc = findLocation(connection.fromLocationId)
-      const toLoc = findLocation(connection.toLocationId)
-      
-      if (fromLoc && toLoc) {
-        if (points.length === 0) {
-          points.push({
-            location: fromLoc,
-            x: fromLoc.coordinates.x,
-            y: fromLoc.coordinates.y
-          })
-        }
+    // パス上の全ての地点を可視化
+    routeInfo.path.forEach(locationId => {
+      const loc = findLocation(locationId)
+      if (loc) {
         points.push({
-          location: toLoc,
-          x: toLoc.coordinates.x,
-          y: toLoc.coordinates.y
+          location: loc,
+          x: loc.coordinates.x,
+          y: loc.coordinates.y
         })
       }
     })
     
     return points
-  }, [currentLocationId, destinationId])
+  }, [routeInfo])
 
   const selectedCharacter = characters.find(c => c.id === selectedCharacterId)
   const currentLocation = findLocation(currentLocationId)
   const destination = findLocation(destinationId)
-  const route = currentLocationId && destinationId ? findRoute(currentLocationId, destinationId) : []
-  const travelTime = route.length > 0 ? calculateTravelTime(route, travelMethod) : 0
-  const warnings = route.length > 0 ? getJourneyWarnings(route, travelMethod) : []
+  const travelTime = routeInfo ? routeInfo.totalTime : 0
+  const warnings = routeInfo && routeInfo.connections.length > 0 ? getJourneyWarnings(routeInfo.connections, travelMethod) : []
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg p-6 space-y-6">
@@ -398,6 +475,17 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
                       {/* Draw route lines */}
                       {routeVisualization.slice(0, -1).map((point, index) => {
                         const nextPoint = routeVisualization[index + 1]
+                        
+                        // Check if this segment has a road connection
+                        const hasRoad = routeInfo && routeInfo.connections.some(conn => {
+                          const fromLoc = findLocation(conn.fromLocationId)
+                          const toLoc = findLocation(conn.toLocationId)
+                          return (
+                            (fromLoc?.id === point.location.id && toLoc?.id === nextPoint.location.id) ||
+                            (toLoc?.id === point.location.id && fromLoc?.id === nextPoint.location.id && conn.bidirectional)
+                          )
+                        })
+                        
                         return (
                           <line
                             key={index}
@@ -405,10 +493,10 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
                             y1={`${point.y}%`}
                             x2={`${nextPoint.x}%`}
                             y2={`${nextPoint.y}%`}
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeDasharray="5,5"
-                            className="text-blue-500 dark:text-blue-400"
+                            stroke={hasRoad ? "#3b82f6" : "#f59e0b"}
+                            strokeWidth={hasRoad ? "3" : "2"}
+                            strokeDasharray={hasRoad ? "0" : "5,5"}
+                            opacity={hasRoad ? "0.8" : "0.6"}
                           />
                         )
                       })}
@@ -443,7 +531,14 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
               </div>
               
               {/* Travel Information */}
-              {route.length > 0 && (
+              {isCalculatingRoute ? (
+                <div className="mt-4 text-center">
+                  <div className="animate-spin inline-block w-6 h-6 border-[3px] border-current border-t-transparent text-blue-600 rounded-full" role="status" aria-label="loading">
+                    <span className="sr-only">経路を計算中...</span>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">経路を計算中...</p>
+                </div>
+              ) : routeInfo && routeInfo.path.length > 0 && (
                 <div className="mt-4 space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -454,15 +549,50 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
                     </span>
                   </div>
                   
+                  {routeInfo.requiresOffRoad && (
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">
+                        ⚠️ 道なき道を通る必要があります
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        一部区間で整備された道路がないため、移動時間が長くなる可能性があります。
+                      </p>
+                    </div>
+                  )}
+                  
+                  {routeInfo.alternativeRoute && (
+                    <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                      <p className="text-sm font-medium text-purple-800 dark:text-purple-200 mb-2">
+                        🔮 代替ルートの提案
+                      </p>
+                      <p className="text-sm text-purple-700 dark:text-purple-300 mb-1">
+                        <strong>方法:</strong> {routeInfo.alternativeRoute.method}
+                      </p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 mb-1">
+                        {routeInfo.alternativeRoute.description}
+                      </p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 mb-2">
+                        <strong>推定時間:</strong> {routeInfo.alternativeRoute.estimatedTime}
+                      </p>
+                      {routeInfo.alternativeRoute.challenges.length > 0 && (
+                        <div className="text-xs text-purple-600 dark:text-purple-400">
+                          <strong>予想される困難:</strong>
+                          <ul className="list-disc list-inside mt-1">
+                            {routeInfo.alternativeRoute.challenges.map((challenge, idx) => (
+                              <li key={idx}>{challenge}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      経路の難易度:
+                      経路の種類:
                     </span>
                     <span className="text-sm">
-                      {route[0]?.difficulty === 'easy' ? '簡単' :
-                       route[0]?.difficulty === 'moderate' ? '普通' :
-                       route[0]?.difficulty === 'difficult' ? '困難' :
-                       '危険'}
+                      {routeInfo.requiresOffRoad ? '道なき道を含む' : '整備された道路'}
                     </span>
                   </div>
                 </div>
@@ -503,7 +633,7 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
             
             <button
               onClick={simulateTravel}
-              disabled={!currentLocationId || !destinationId || isSimulating || route.length === 0}
+              disabled={!currentLocationId || !destinationId || isSimulating || isCalculatingRoute || !routeInfo}
               className="px-6 py-2 bg-blue-500 text-white rounded-md 
                 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed
                 transition-colors flex items-center space-x-2"
