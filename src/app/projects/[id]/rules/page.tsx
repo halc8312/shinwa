@@ -133,37 +133,39 @@ export default function WritingRulesPage() {
 
         {/* タブナビゲーション */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => setActiveTab('basic')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'basic'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              基本設定
-            </button>
-            <button
-              onClick={() => setActiveTab('style')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'style'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              文体・スタイル
-            </button>
-            <button
-              onClick={() => setActiveTab('guidelines')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'guidelines'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              執筆ガイドライン
-            </button>
+          <div className="overflow-x-auto">
+            <div className="flex border-b border-gray-200 dark:border-gray-700 min-w-max">
+              <button
+                onClick={() => setActiveTab('basic')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                  activeTab === 'basic'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                基本設定
+              </button>
+              <button
+                onClick={() => setActiveTab('style')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                  activeTab === 'style'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                文体・スタイル
+              </button>
+              <button
+                onClick={() => setActiveTab('guidelines')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                  activeTab === 'guidelines'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                執筆ガイドライン
+              </button>
+            </div>
           </div>
 
           <div className="p-6">
@@ -269,7 +271,7 @@ export default function WritingRulesPage() {
                   <textarea
                     value={rules.style}
                     onChange={(e) => setRules({ ...rules, style: e.target.value })}
-                    className="block w-full rounded-md border border-gray-300 px-3 py-2 text-base shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 px-3 py-2 text-base shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     rows={10}
                     placeholder="執筆時の文体に関するルールを記述..."
                   />
