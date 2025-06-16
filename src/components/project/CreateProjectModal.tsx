@@ -484,7 +484,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
                   <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
                     <li>執筆ルール（視点、時制、文体）</li>
                     <li>世界観設定（時代、地理、文化）</li>
-                    <li>主要キャラクター（5-8人）</li>
+                    <li>主要キャラクター（物語に必要な人数）</li>
                     <li>キャラクター間の関係性</li>
                   </ul>
                   

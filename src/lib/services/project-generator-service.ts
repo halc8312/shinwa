@@ -430,9 +430,9 @@ styleフィールドには以下を含めてください：
 
 【生成するキャラクター数】
 - 主人公（protagonist）: 1名
-- 敵対者（antagonist）: 1名（物語によっては不要な場合あり）
-- その他の重要キャラクター: 3-6名
-- 合計: 5-8名
+- 敵対者（antagonist）: 物語に必要な場合
+- その他の重要キャラクター: 物語の規模と複雑さに応じて適切な人数
+- 合計: 物語に必要な人数を柔軟に生成（最低3名以上）
 
 必ずJSON配列として、上記の形式に完全に準拠したキャラクターデータを返してください。`
 
@@ -444,7 +444,7 @@ styleフィールドには以下を含めてください：
 世界観:
 ${worldSettings.name} - ${worldSettings.description}
 
-5-8人程度の主要キャラクターを生成してください。`
+物語の規模と複雑さに応じて必要な主要キャラクターを生成してください。`
 
     const response = await this.generateWithAI(systemPrompt, userPrompt, model, temperature)
     

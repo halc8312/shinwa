@@ -52,9 +52,9 @@ class ProjectService {
           cultures: []
         },
         aiSettings: data.settings?.aiSettings || {
-          model: 'gpt-4o',
+          model: 'gpt-4.1-mini',
           temperature: 0.7,
-          maxTokens: 4000,
+          maxTokens: 32768,
           systemPrompt: '',
           customInstructions: []
         }
