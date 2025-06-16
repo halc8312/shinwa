@@ -136,13 +136,13 @@ export class ForeshadowingContextBuilder {
         case 'character':
           contextual.suggestedResolution = 'キャラクターの行動や対話を通じて明かす'
           break
-        case 'worldbuilding':
+        case 'world':
           contextual.suggestedResolution = '世界観の描写や説明の中で自然に明かす'
           break
         case 'plot':
           contextual.suggestedResolution = '物語の展開の中で必然的に明かす'
           break
-        case 'theme':
+        case 'other':
           contextual.suggestedResolution = 'テーマに関連する出来事や省察を通じて明かす'
           break
         case 'mystery':
