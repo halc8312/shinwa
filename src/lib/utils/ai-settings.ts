@@ -5,42 +5,42 @@ export const DEFAULT_MODEL_SETTINGS: AIModelSettings = {
   defaultModel: {
     model: 'gpt-4.1-mini',
     temperature: 0.7,
-    maxTokens: 4000
+    maxTokens: 32768
   },
   chapterWriting: {
-    model: 'gpt-4o',
+    model: 'gpt-4.1-mini',
     temperature: 0.8,
-    maxTokens: 5000
+    maxTokens: 32768
   },
   chapterPlanning: {
     model: 'gpt-4.1-mini',
     temperature: 0.5,
-    maxTokens: 2000
+    maxTokens: 32768
   },
   backgroundEvents: {
-    model: 'gpt-4o-mini',
+    model: 'gpt-4.1-mini',
     temperature: 0.3,
-    maxTokens: 1000
+    maxTokens: 32768
   },
   summarization: {
     model: 'gpt-4.1-mini',
     temperature: 0.3,
-    maxTokens: 500
+    maxTokens: 32768
   },
   characterAnalysis: {
     model: 'gpt-4.1-mini',
     temperature: 0.5,
-    maxTokens: 2000
+    maxTokens: 32768
   },
   validation: {
-    model: 'gpt-4o-mini',
+    model: 'gpt-4.1-mini',
     temperature: 0.3,
-    maxTokens: 1000
+    maxTokens: 32768
   },
   assistant: {
     model: 'gpt-4.1-mini',
     temperature: 0.7,
-    maxTokens: 2000
+    maxTokens: 32768
   }
 }
 

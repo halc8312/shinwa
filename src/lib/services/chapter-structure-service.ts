@@ -278,15 +278,6 @@ ${this.getForeshadowingGuidelines(chapterCount || 10)}
       // 超長編：最大限のトークンを使用
       maxTokens = 8000
       temperature = 0.7
-      // 必要に応じてより高性能なモデルを使用
-      if (baseSettings.model === 'gpt-4.1-mini') {
-        return {
-          ...baseSettings,
-          model: 'gpt-4o-mini',
-          maxTokens,
-          temperature
-        }
-      }
     }
     
     return {
