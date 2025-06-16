@@ -296,67 +296,71 @@ export default function WorldSettingsPage() {
 
         {/* タブナビゲーション */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => setActiveTab('basic')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'basic'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              基本情報
-            </button>
-            <button
-              onClick={() => setActiveTab('geography')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'geography'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              地理
-            </button>
-            <button
-              onClick={() => setActiveTab('cultures')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'cultures'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              文化
-            </button>
-            <button
-              onClick={() => setActiveTab('magic')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'magic'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              魔法・特殊能力
-            </button>
-            <button
-              onClick={() => setActiveTab('map')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'map'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              地図
-            </button>
-            <button
-              onClick={() => setActiveTab('travel')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'travel'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              旅行シミュレーター
-            </button>
+          <div className="overflow-x-auto">
+            <div className="flex border-b border-gray-200 dark:border-gray-700 min-w-max">
+              <button
+                onClick={() => setActiveTab('basic')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                  activeTab === 'basic'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                基本情報
+              </button>
+              <button
+                onClick={() => setActiveTab('geography')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                  activeTab === 'geography'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                地理
+              </button>
+              <button
+                onClick={() => setActiveTab('cultures')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                  activeTab === 'cultures'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                文化
+              </button>
+              <button
+                onClick={() => setActiveTab('magic')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                  activeTab === 'magic'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                <span className="hidden sm:inline">魔法・特殊能力</span>
+                <span className="sm:hidden">魔法</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('map')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                  activeTab === 'map'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                地図
+              </button>
+              <button
+                onClick={() => setActiveTab('travel')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                  activeTab === 'travel'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                <span className="hidden sm:inline">旅行シミュレーター</span>
+                <span className="sm:hidden">旅行</span>
+              </button>
+            </div>
           </div>
 
           <div className="p-6">

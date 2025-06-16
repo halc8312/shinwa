@@ -657,33 +657,52 @@ ${pendingChapter.content}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* ヘッダー */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white break-words">
                 {project.name}
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
                 {project.description || '説明なし'}
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               <Link href="/projects">
-                <Button variant="secondary">
+                <Button variant="secondary" size="sm" className="sm:hidden">
+                  一覧
+                </Button>
+                <Button variant="secondary" className="hidden sm:inline-flex">
                   プロジェクト一覧
                 </Button>
               </Link>
               <Link href={`/projects/${projectId}/dashboard`}>
-                <Button variant="primary">
+                <Button variant="primary" size="sm" className="sm:hidden">
+                  🎯 ダッシュボード
+                </Button>
+                <Button variant="primary" className="hidden sm:inline-flex">
                   🎯 統合ダッシュボード
                 </Button>
               </Link>
-              <Button variant="secondary" onClick={() => setShowAISettings(true)}>
+              <Button variant="secondary" size="sm" onClick={() => setShowAISettings(true)} className="sm:hidden">
                 AI設定
+              </Button>
+              <Button variant="secondary" onClick={() => setShowAISettings(true)} className="hidden sm:inline-flex">
+                AI設定
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowAdvancedAISettings(true)}
+                title="機能別AIモデル設定"
+                className="sm:hidden"
+              >
+                ⚙️
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => setShowAdvancedAISettings(true)}
                 title="機能別AIモデル設定"
+                className="hidden sm:inline-flex"
               >
                 ⚙️ 高度なAI設定
               </Button>
