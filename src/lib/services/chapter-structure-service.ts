@@ -65,6 +65,12 @@ export class ChapterStructureService {
     ]
     
     try {
+      // デバッグ用ログ
+      console.log(`[ChapterStructureService] Generating structure for ${chapterCount} chapters`)
+      console.log(`[ChapterStructureService] Model settings:`, modelSettings)
+      console.log(`[ChapterStructureService] Characters available:`, projectData.characters?.length || 0)
+      console.log(`[ChapterStructureService] World settings available:`, !!projectData.worldSettings)
+      
       const response = await aiManager.complete({
         model: modelSettings.model,
         messages,
@@ -74,6 +80,13 @@ export class ChapterStructureService {
       
       const chapters = this.parseChapterOutlines(response.content, chapterCount)
       const tensionCurve = this.generateTensionCurve(chapters)
+      
+      // 章立ての品質チェック
+      const hasCharacterIds = chapters.some(ch => ch.charactersInvolved && ch.charactersInvolved.length > 0)
+      const hasUniqueTitle = chapters.some(ch => ch.title && ch.title !== '')
+      console.log(`[ChapterStructureService] Generated chapters quality check:`)
+      console.log(`[ChapterStructureService] - Has character IDs: ${hasCharacterIds}`)
+      console.log(`[ChapterStructureService] - Has unique titles: ${hasUniqueTitle}`)
       
       return {
         totalChapters: chapterCount,
@@ -220,6 +233,12 @@ export class ChapterStructureService {
     let prompt = `あなたは${genre}小説の構成を専門とする編集者です。
 ${template ? `${template.name}（${template.description}）に基づいて` : '独自の構成で'}、魅力的で詳細な章立てを作成してください。
 
+重要な指示：
+- 提供されたキャラクター情報と世界観設定を必ず活用してください
+- 各章でキャラクターの成長と関係性の変化を具体的に描写してください
+- 世界観の特徴を各章に反映させ、段階的に深化させてください
+- テンプレート的な章立てではなく、この作品固有の展開を作成してください
+
 `
 
     if (writingRules) {
@@ -238,10 +257,15 @@ ${template ? `${template.name}（${template.description}）に基づいて` : '�
 4. コンフリクト（葛藤や障害）
 5. 解決または次章への引き
 6. テンションレベル（1-10）
-7. 登場キャラクター（charactersInvolved: キャラクターIDの配列）
-8. 場所（location: 具体的な場所）
+7. 登場キャラクター（charactersInvolved: 提供されたキャラクターIDを必ず使用）
+8. 場所（location: 世界観設定に基づく具体的な場所）
 9. 時間（time: 時間帯や経過時間）
 10. 伏線の設置と回収計画
+
+キャラクターの使用について：
+- 各章でどのキャラクターが登場し、どのような役割を果たすか明確にしてください
+- キャラクターの性格、背景、関係性を考慮した展開を作成してください
+- charactersInvolvedフィールドには、提供されたキャラクターIDを必ず記載してください
 
 ${this.getForeshadowingGuidelines(chapterCount || 10)}
 
@@ -258,25 +282,33 @@ ${this.getForeshadowingGuidelines(chapterCount || 10)}
     chapterCount: number
   ): AIModelSettings[keyof AIModelSettings] {
     // 章数に応じてトークン制限を調整
-    // 各章に必要な詳細情報を考慮して、より適切なトークン数を設定
+    // 全ての小説タイプで詳細な章立てが生成できるよう、十分なトークン数を確保
     let maxTokens = baseSettings.maxTokens
     let temperature = baseSettings.temperature
     
     if (chapterCount <= 3) {
-      // 短編：少ない章数でも詳細な情報を生成できるよう十分なトークンを確保
-      maxTokens = 3000  // 2000から増加
+      // 超短編：詳細な情報を生成できるよう十分なトークンを確保
+      maxTokens = 3000
       temperature = 0.7
-    } else if (chapterCount <= 10) {
-      // 中編：章数に応じて適切なトークン数を設定
-      maxTokens = 4500  // 3500から増加
+    } else if (chapterCount <= 5) {
+      // 短編：より詳細な情報のために増加
+      maxTokens = 4000
       temperature = 0.7
-    } else if (chapterCount <= 20) {
-      // 長編：さらにトークンを増やす
-      maxTokens = 6000  // 5000から増加
+    } else if (chapterCount <= 15) {
+      // 中編：キャラクターと世界観を反映した詳細な章立てのために大幅増加
+      maxTokens = 6000  // 4500から大幅増加
+      temperature = 0.7
+    } else if (chapterCount <= 30) {
+      // 長編：複雑な構成に対応するため更に増加
+      maxTokens = 8000  // 6000から増加
+      temperature = 0.7
+    } else if (chapterCount <= 50) {
+      // 超長編：最大限のトークンを使用
+      maxTokens = 10000  // 8000から増加
       temperature = 0.7
     } else {
-      // 超長編：最大限のトークンを使用
-      maxTokens = 8000
+      // 超超長編：バッチ処理を検討する必要があるレベル
+      maxTokens = 12000
       temperature = 0.7
     }
     
@@ -368,8 +400,15 @@ ${projectData.worldSettings.description ? `説明: ${projectData.worldSettings.d
 【幕構成】
 ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter}章）: ${act.purpose}`).join('\n')}
 
+【重要な作成指針】
+1. 上記で提供されたキャラクター情報を必ず活用し、各章での役割と成長を明確にしてください
+2. 世界観設定を各章の舞台や展開に反映させてください
+3. キャラクター同士の関係性の変化を物語の推進力として活用してください
+4. 各章は独自性を持ちながら、全体として一つの物語を形成するようにしてください
+5. テンプレート的な展開を避け、この作品固有の魅力的な章立てを作成してください
+
 上記の情報を基に、${chapterCount}章の詳細な章立てを作成してください。
-キャラクターの成長や関係性の変化、世界観の深化、伏線の計画的な配置を考慮してください。
+必ず提供されたキャラクターIDを使用し、世界観設定を反映させた具体的な展開を作成してください。
 
 ${this.getResponseFormatInstructions(chapterCount)}
 `
@@ -380,9 +419,8 @@ ${this.getResponseFormatInstructions(chapterCount)}
    * 章数に応じたレスポンスフォーマット指示の生成
    */
   private getResponseFormatInstructions(chapterCount: number): string {
-    // 章数が少ない場合は詳細な情報を求める
-    if (chapterCount <= 5) {
-      return `各章について、以下の形式のJSON配列で出力してください：
+    // 全ての小説タイプで必要な情報を含めるよう統一
+    const baseFormat = `各章について、以下の形式のJSON配列で出力してください：
 
 \`\`\`json
 [
@@ -415,76 +453,47 @@ ${this.getResponseFormatInstructions(chapterCount)}
 
 重要：
 - titleフィールドには「第X章」ではなく、内容を表す具体的なタイトルを入れてください
-- charactersInvolvedには、上記で示したキャラクターIDを使用してください
-- 伏線は物語全体のバランスを考えて配置してください
-- 短期伏線は頻繁に、長期伏線は慎重に設置してください`
-    } else if (chapterCount <= 10) {
-      // 中編の場合はバランスを重視
-      return `各章について、以下の形式のJSON配列で出力してください：
-
-\`\`\`json
-[
-  {
-    "number": 1,
-    "title": "具体的な章タイトル",
-    "purpose": "この章の目的",
-    "keyEvents": ["主要イベント1", "主要イベント2", "主要イベント3"],
-    "conflict": "中心的な葛藤",
-    "resolution": "章の結末",
-    "hook": "次章への引き",
-    "tensionLevel": 5,
-    "charactersInvolved": ["キャラクターID"],
-    "location": "主要な場所",
-    "time": "時間設定",
-    "foreshadowingToPlant": [
-      {
-        "hint": "伏線の内容",
-        "scope": "short/medium/long",
-        "significance": "minor/moderate/major",
-        "plannedRevealChapter": 回収予定章
-      }
-    ],
-    "foreshadowingToReveal": ["回収する伏線"]
-  }
-]
-\`\`\`
-
-重要：
-- 各章が物語全体における役割を明確にしてください
+- charactersInvolvedには、上記で示したキャラクターIDを必ず使用してください
+- 各章で登場するキャラクターの成長、関係性の変化、世界観の深化を反映してください
+- 伏線は物語全体のバランスを考えて配置してください`
+    
+    // 章数に応じて追加の指示を提供
+    if (chapterCount <= 3) {
+      // 超短編
+      return baseFormat + `
+- 少ない章数で完結するため、各章の密度を高めてください
+- キャラクターの魅力を素早く伝え、印象的な展開を心がけてください
+- 短期伏線を効果的に使用してください`
+    } else if (chapterCount <= 5) {
+      // 短編
+      return baseFormat + `
+- 短編として緊密な構成を心がけてください
+- キャラクターの変化を明確に描写してください
+- 短期・中期伏線をバランスよく配置してください`
+    } else if (chapterCount <= 15) {
+      // 中編
+      return baseFormat + `
+- 中編として各章の役割を明確にしてください
+- キャラクターの段階的な成長と関係性の深化を描いてください
 - テンションの緩急を意識して構成してください
-- 伏線はバランスよく配置してください`
+- 短期・中期・長期伏線をバランスよく配置してください`
+    } else if (chapterCount <= 30) {
+      // 長編
+      return baseFormat + `
+- 長編として全体の構成を俯瞰してください
+- 複数のキャラクターアークを並行して展開してください
+- 各幕の役割を明確にし、大きな物語の流れを作ってください
+- 世界観の段階的な拡張と深化を行ってください
+- 長期伏線を効果的に配置し、読者の期待を持続させてください`
     } else {
-      // 長編の場合は効率的な情報提供を求める
-      return `各章について、以下の形式のJSON配列で出力してください：
-
-\`\`\`json
-[
-  {
-    "number": 1,
-    "title": "章タイトル",
-    "purpose": "章の目的（簡潔に）",
-    "keyEvents": ["イベント1", "イベント2"],
-    "conflict": "主要な葛藤",
-    "hook": "次章への引き",
-    "tensionLevel": 5,
-    "charactersInvolved": ["キャラID"],
-    "location": "場所",
-    "time": "時間",
-    "foreshadowingToPlant": [
-      {
-        "hint": "重要な伏線のみ",
-        "scope": "medium/long",
-        "plannedRevealChapter": 回収章
-      }
-    ]
-  }
-]
-\`\`\`
-
-重要：
-- 長編の全体構成を意識してください
-- 各幕の役割を明確にしてください
-- 重要な伏線のみを記載してください`
+      // 超長編
+      return baseFormat + `
+- 超長編として壮大な物語を構築してください
+- 複数のサブプロットを織り交ぜながら進行してください
+- キャラクターの長期的な成長と変化を丁寧に描いてください
+- 世界観の複雑な側面を段階的に明かしてください
+- 超長期伏線を含め、多層的な伏線構造を構築してください
+- 読者が長期間楽しめるよう、各章に独自の魅力を持たせてください`
     }
   }
 
