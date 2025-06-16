@@ -257,7 +257,7 @@ export class ForeshadowingTrackerService {
           suggestions.push(f)
         }
         // 物語の終盤で未回収
-        else if (nextChapterNumber >= totalChapters - 1 && f.status !== 'revealed') {
+        else if (nextChapterNumber >= totalChapters - 1) {
           suggestions.push(f)
         }
       })
