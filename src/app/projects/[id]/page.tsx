@@ -367,8 +367,12 @@ export default function ProjectDashboard() {
         
         if (result.validationResult.isValid) {
           setExecutionLog(prev => [...prev, '✅ すべての問題が修正されました！'])
+          // 問題がなくなったら検証セレクターを非表示
+          setShowValidationSelector(false)
         } else {
           setExecutionLog(prev => [...prev, `⚠️ まだ${result.validationResult.issues.length}件の問題が残っています。`])
+          // まだ問題があれば検証セレクターを表示
+          setShowValidationSelector(true)
         }
       }
     } catch (error: any) {
@@ -527,6 +531,9 @@ ${pendingChapter.content}
     
     setIsExecuting(true)
     setExecutionLog([`第${nextChapterNumber}章の執筆を開始します...`])
+    // 前回の検証状態をリセット
+    setValidationResult(null)
+    setShowValidationSelector(false)
 
     try {
       const executor = new NovelFlowExecutor(
@@ -606,6 +613,8 @@ ${pendingChapter.content}
             setExecutionLog(prev => [...prev, `検証結果: ${result.validationResult.issues.length}件の問題`])
             // 検証結果をコンソールにも出力（デバッグ用）
             console.log('Validation Result:', result.validationResult)
+            // 自動的に検証セレクターを表示
+            setShowValidationSelector(true)
           }
         } else {
           // 検証結果がない場合もログに記録
