@@ -18,6 +18,8 @@ import { RulesEngine, getProjectRulesEngine } from './rules-engine'
 import { getFeatureModelSettings } from '../utils/ai-settings'
 import { WorldMapService } from './world-map-service'
 import { ForeshadowingTrackerService } from './foreshadowing-tracker-service'
+import { ForeshadowingContextBuilder, ForeshadowingContext } from './foreshadowing-context-builder'
+import { ForeshadowingResolutionValidator } from './foreshadowing-resolution-validator'
 
 export class NovelFlowExecutor implements FlowExecutor {
   private projectId: string
@@ -188,6 +190,11 @@ export class NovelFlowExecutor implements FlowExecutor {
   }
 
   private async executeValidateStep(step: FlowStep, context: FlowContext): Promise<FlowContext> {
+    // 伏線検証の特別処理
+    if (step.id === 'validate-foreshadowing') {
+      return this.executeForeshadowingValidation(context)
+    }
+    
     this.flowEngine?.log(`検証ステップを開始: 第${context.chapterNumber || 1}章`, 'info')
     
     // 検証用のモデル設定を取得
@@ -400,7 +407,10 @@ ${chapterNumber > 1 ? '前章からの流れを踏まえて、物語を自然に
   "characters": ["登場キャラクターIDのリスト（重要：キャラクター名ではなく、必ずIDを使用してください）"],
   "mainEvents": ["主要イベント1", "主要イベント2"],
   "foreshadowingToPlant": ["新たに設置する伏線"],
-  "foreshadowingToResolve": ["回収する伏線"],
+  "foreshadowingToResolve": ["回収する伏線（ヒントの文字列を正確に記載）"],
+  "foreshadowingResolutionNotes": {
+    "伏線のヒント": "どのように回収するかの具体的な説明"
+  },
   "openingHook": "章の出だしのフック",
   "closingHook": "章の終わりのフック"
 }
@@ -409,6 +419,13 @@ ${chapterNumber > 1 ? '前章からの流れを踏まえて、物語を自然に
 - charactersフィールドには、キャラクター名ではなく、必ずキャラクターIDを使用してください
 - キャラクターIDは、提供されたキャラクター一覧のidフィールドの値です
 - 例: ["char-123", "char-456"] のような形式で指定してください
+
+伏線回収の重要な注意事項:
+- 【必ず回収すべき伏線】に記載された伏線は、必ずforeshadowingToResolveに含めてください
+- 回収する際は、伏線のヒントの文字列を正確に記載してください
+- foreshadowingResolutionNotesで、各伏線をどのように物語に組み込んで回収するか具体的に説明してください
+- 無理やり回収するのではなく、章の流れに自然に組み込んでください
+- 読者が「なるほど！」と思えるような回収方法を心がけてください
 
 ${genre}小説として適切な展開を心がけてください。`
     }
@@ -449,7 +466,26 @@ ${genre}小説として適切な展開を心がけてください。`
       parts.push(`プロットの概要:\n${context.plotOutline || context.projectMeta?.plotOutline}`)
     }
 
-    if (context.foreshadowing) {
+    // 伏線コンテキストの構築
+    if (context.chapters && context.chapterNumber) {
+      const totalChapters = context.projectMeta?.totalChapters || context.chapters.length
+      const foreshadowingContext = ForeshadowingContextBuilder.buildContext(
+        context.chapters,
+        context.chapterNumber,
+        totalChapters
+      )
+      
+      const foreshadowingPrompt = ForeshadowingContextBuilder.generatePrompt(
+        foreshadowingContext,
+        context.chapterNumber
+      )
+      
+      if (foreshadowingPrompt) {
+        parts.push('【伏線の状況】')
+        parts.push(foreshadowingPrompt)
+      }
+    } else if (context.foreshadowing) {
+      // フォールバック：旧形式
       parts.push(`管理中の伏線:\n${JSON.stringify(context.foreshadowing, null, 2)}`)
     }
 
@@ -955,34 +991,39 @@ ${JSON.stringify(context.previousChapters, null, 2)}
     
     // 既存の伏線の状態を更新
     const updatedForeshadowing = previousForeshadowing.map((f: any) => {
-      // chapterPlanからの回収
-      if (context.chapterPlan?.foreshadowingToResolve?.includes(f.hint)) {
-        return {
-          ...f,
-          status: 'revealed' as const,
-          chapterRevealed: chapterNumber
+      // 章の内容がある場合は実際に回収されたか簡易チェック
+      const shouldResolve = context.chapterPlan?.foreshadowingToResolve?.includes(f.hint) ||
+                           chapterOutline?.foreshadowingToReveal?.includes(f.hint)
+      
+      if (shouldResolve && context.chapterContent) {
+        // 簡易チェックで回収の可能性を確認
+        const quickCheck = ForeshadowingResolutionValidator.quickCheck(
+          context.chapterContent,
+          f.hint
+        )
+        
+        if (quickCheck.likelyResolved) {
+          console.log(`伏線 "${f.hint}" が第${chapterNumber}章で回収されたことを確認しました。`)
+          return {
+            ...f,
+            status: 'revealed' as const,
+            chapterRevealed: chapterNumber,
+            payoff: context.chapterPlan?.foreshadowingResolutionNotes?.[f.hint] || 
+                   `第${chapterNumber}章で明らかになった`
+          }
+        } else {
+          console.warn(`伏線 "${f.hint}" は回収予定でしたが、本文中で確認できませんでした。`)
+          // 回収されなかった場合は状態を変更しない
+          return f
         }
       }
       
-      // 章立てからの回収
-      if (chapterOutline?.foreshadowingToReveal?.includes(f.hint)) {
-        return {
-          ...f,
-          status: 'revealed' as const,
-          chapterRevealed: chapterNumber
-        }
-      }
-      
-      // 回収予定章に到達した場合の処理
-      if (f.plannedRevealChapter && f.plannedRevealChapter === chapterNumber && f.status === 'planted') {
-        console.log(`伏線 "${f.hint}" が第${chapterNumber}章で回収予定です。自動的に回収済みとしてマークします。`)
-        // 回収予定章に到達したら自動的に回収済みにする
-        return {
-          ...f,
-          status: 'revealed' as const,
-          chapterRevealed: chapterNumber,
-          payoff: f.payoff || `第${chapterNumber}章で明らかになった`
-        }
+      // 回収予定章に到達した場合の処理（本文がまだない場合）
+      if (f.plannedRevealChapter && f.plannedRevealChapter === chapterNumber && 
+          f.status === 'planted' && !context.chapterContent) {
+        console.log(`伏線 "${f.hint}" が第${chapterNumber}章で回収予定です。`)
+        // まだ本文がない場合は状態を変更しない（後で検証される）
+        return f
       }
       
       return f
@@ -1477,5 +1518,59 @@ ${chapterContent.substring(0, 2000)}${chapterContent.length > 2000 ? '...' : ''}
     }
     
     return { issues }
+  }
+
+  private async executeForeshadowingValidation(context: FlowContext): Promise<FlowContext> {
+    this.flowEngine?.log('伏線回収の検証を開始', 'info')
+    
+    if (!context.chapterContent || !context.chapterPlan) {
+      this.flowEngine?.log('章の内容または計画が見つかりません。伏線検証をスキップします。', 'warning')
+      return { foreshadowingValidation: { valid: true, warnings: [] } }
+    }
+
+    const warnings: string[] = []
+    const adjustments: string[] = []
+
+    try {
+      // 伏線回収の検証を実施
+      const validation = await ForeshadowingTrackerService.validateAndAdjustForeshadowing(
+        this.projectId,
+        context.chapterId || generateId(),
+        context.chapterContent,
+        context.chapterPlan,
+        context.chapters || [],
+        this.aiModel
+      )
+
+      warnings.push(...validation.warnings)
+      adjustments.push(...validation.adjustments)
+
+      // 検証結果をログ出力
+      if (warnings.length > 0) {
+        this.flowEngine?.log(`伏線検証で${warnings.length}件の警告が見つかりました`, 'warning')
+        warnings.forEach(warning => {
+          this.flowEngine?.log(warning, 'warning')
+        })
+      }
+
+      if (adjustments.length > 0) {
+        this.flowEngine?.log(`伏線検証で${adjustments.length}件の調整を行いました`, 'info')
+        adjustments.forEach(adjustment => {
+          this.flowEngine?.log(adjustment, 'info')
+        })
+      }
+
+    } catch (error) {
+      console.error('伏線検証中にエラーが発生しました:', error)
+      this.flowEngine?.log('伏線検証中にエラーが発生しました', 'error')
+    }
+
+    return {
+      foreshadowingValidation: {
+        valid: warnings.length === 0,
+        warnings,
+        adjustments
+      }
+    }
   }
 }

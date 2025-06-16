@@ -73,6 +73,15 @@ export const mainWritingFlow: Flow = {
       input: ['chapterContent', 'settings', 'previousChapters'],
       output: ['validationResult'],
       action: 'キャラクターの行動、世界観、時系列の一貫性を検証',
+      nextSteps: ['validate-foreshadowing']
+    },
+    {
+      id: 'validate-foreshadowing',
+      name: '伏線回収の検証',
+      type: 'validate',
+      input: ['chapterContent', 'chapterPlan', 'foreshadowing'],
+      output: ['foreshadowingValidation'],
+      action: '計画された伏線が実際に回収されたかを検証',
       nextSteps: ['generate-background']
     },
     {
