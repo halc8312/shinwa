@@ -1,12 +1,16 @@
 'use client'
 
 import { ChapterStructure, PlannedForeshadowing } from '@/lib/types'
+import { calculateForeshadowingScopeRanges } from '@/lib/utils/foreshadowing-utils'
 
 interface ForeshadowingMapProps {
   chapterStructure: ChapterStructure
 }
 
 export default function ForeshadowingMap({ chapterStructure }: ForeshadowingMapProps) {
+  // 動的スコープ範囲を計算
+  const scopeRanges = calculateForeshadowingScopeRanges(chapterStructure.totalChapters)
+  
   // すべての伏線を収集
   const allForeshadowing: {
     hint: string
@@ -123,7 +127,7 @@ export default function ForeshadowingMap({ chapterStructure }: ForeshadowingMapP
       {shortTerm.length > 0 && (
         <div>
           <h4 className="text-sm font-medium mb-2 text-green-600 dark:text-green-400">
-            短期伏線（1-3章で回収）
+            {scopeRanges.short.label}
           </h4>
           <div className="space-y-1">
             {shortTerm.map((f, i) => renderForeshadowingLine(f, i, chapterStructure.totalChapters))}
@@ -135,7 +139,7 @@ export default function ForeshadowingMap({ chapterStructure }: ForeshadowingMapP
       {mediumTerm.length > 0 && (
         <div>
           <h4 className="text-sm font-medium mb-2 text-yellow-600 dark:text-yellow-400">
-            中期伏線（4-10章で回収）
+            {scopeRanges.medium.label}
           </h4>
           <div className="space-y-1">
             {mediumTerm.map((f, i) => renderForeshadowingLine(f, i, chapterStructure.totalChapters))}
@@ -147,7 +151,7 @@ export default function ForeshadowingMap({ chapterStructure }: ForeshadowingMapP
       {longTerm.length > 0 && (
         <div>
           <h4 className="text-sm font-medium mb-2 text-red-600 dark:text-red-400">
-            長期伏線（11章以上で回収）
+            {scopeRanges.long.label}
           </h4>
           <div className="space-y-1">
             {longTerm.map((f, i) => renderForeshadowingLine(f, i, chapterStructure.totalChapters))}

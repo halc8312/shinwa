@@ -17,6 +17,7 @@ import { generateId } from '../utils'
 import { RulesEngine, getProjectRulesEngine } from './rules-engine'
 import { getFeatureModelSettings } from '../utils/ai-settings'
 import { WorldMapService } from './world-map-service'
+import { ForeshadowingTrackerService } from './foreshadowing-tracker-service'
 
 export class NovelFlowExecutor implements FlowExecutor {
   private projectId: string
@@ -974,8 +975,14 @@ ${JSON.stringify(context.previousChapters, null, 2)}
       
       // 回収予定章に到達した場合の処理
       if (f.plannedRevealChapter && f.plannedRevealChapter === chapterNumber && f.status === 'planted') {
-        console.log(`伏線 "${f.hint}" が第${chapterNumber}章で回収予定です`)
-        // 実際の回収は章の内容次第なので、ここではステータスは変更しない
+        console.log(`伏線 "${f.hint}" が第${chapterNumber}章で回収予定です。自動的に回収済みとしてマークします。`)
+        // 回収予定章に到達したら自動的に回収済みにする
+        return {
+          ...f,
+          status: 'revealed' as const,
+          chapterRevealed: chapterNumber,
+          payoff: f.payoff || `第${chapterNumber}章で明らかになった`
+        }
       }
       
       return f

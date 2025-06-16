@@ -798,6 +798,7 @@ export default function ChapterDetailPage() {
           onSave={handleSaveForeshadowing}
           foreshadowing={editingForeshadowing}
           currentChapterNumber={chapter.number}
+          totalChapters={project.chapterStructure?.totalChapters}
         />
       </div>
     </div>

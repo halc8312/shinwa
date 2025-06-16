@@ -128,6 +128,8 @@ export interface Foreshadowing {
   plannedRevealChapter?: number  // 回収予定章
   relatedCharacters?: string[]  // 関連キャラクターID
   category?: 'character' | 'plot' | 'world' | 'mystery' | 'other'  // 伏線のカテゴリ
+  scopeRange?: { min: number; max: number; label: string }  // 動的に計算されたスコープ範囲
+  isOverdue?: boolean  // 回収期限を過ぎているかのフラグ
 }
 
 // 計画された伏線（章立て時に使用）
