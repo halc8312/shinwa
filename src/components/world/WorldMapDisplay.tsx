@@ -102,53 +102,177 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
     const { worldMap } = worldMapSystem
     
     return (
-      <div className="relative w-full h-[600px] bg-blue-50 dark:bg-gray-800 rounded-lg overflow-hidden">
-        {/* Grid background */}
-        <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
+      <div className="relative w-full h-[600px] bg-gradient-to-b from-blue-100 to-blue-200 dark:from-gray-800 dark:to-gray-900 rounded-lg overflow-hidden">
+        {/* Enhanced terrain background */}
+        <svg className="absolute inset-0 w-full h-full">
+          <defs>
+            {/* Ocean gradient */}
+            <radialGradient id="oceanGradient">
+              <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.5" />
+            </radialGradient>
+            {/* Mountain gradient */}
+            <radialGradient id="mountainGradient">
+              <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.6" />
+            </radialGradient>
+            {/* Forest gradient */}
+            <radialGradient id="forestGradient">
+              <stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0.5" />
+            </radialGradient>
+            {/* Desert gradient */}
+            <radialGradient id="desertGradient">
+              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.5" />
+            </radialGradient>
+            {/* Plains gradient */}
+            <linearGradient id="plainsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#86efac" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#22c55e" stopOpacity="0.3" />
+            </linearGradient>
+          </defs>
+          
+          {/* Render geographical features */}
+          {worldMap.geography && worldMap.geography.map((feature, index) => {
+            const width = feature.area.bottomRight.x - feature.area.topLeft.x
+            const height = feature.area.bottomRight.y - feature.area.topLeft.y
+            const fillId = `${feature.type}Gradient`
+            
+            if (feature.type === 'mountain') {
+              // Render mountains as triangular shapes
+              return (
+                <g key={index}>
+                  <polygon
+                    points={`${feature.area.topLeft.x + width/2}%,${feature.area.topLeft.y}% ${feature.area.topLeft.x}%,${feature.area.bottomRight.y}% ${feature.area.bottomRight.x}%,${feature.area.bottomRight.y}%`}
+                    fill={`url(#${fillId})`}
+                    className="opacity-60"
+                  />
+                  <text
+                    x={`${feature.area.topLeft.x + width/2}%`}
+                    y={`${feature.area.topLeft.y + height/2}%`}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fill="currentColor"
+                    className="text-gray-700 dark:text-gray-300 opacity-70"
+                  >
+                    {feature.name}
+                  </text>
+                </g>
+              )
+            } else if (feature.type === 'river') {
+              // Render rivers as curved paths
+              return (
+                <g key={index}>
+                  <path
+                    d={`M ${feature.area.topLeft.x}%,${feature.area.topLeft.y}% Q ${(feature.area.topLeft.x + feature.area.bottomRight.x)/2}%,${(feature.area.topLeft.y + feature.area.bottomRight.y)/2 + 5}% ${feature.area.bottomRight.x}%,${feature.area.bottomRight.y}%`}
+                    stroke="#3b82f6"
+                    strokeWidth="3"
+                    fill="none"
+                    opacity="0.7"
+                  />
+                  <text
+                    x={`${(feature.area.topLeft.x + feature.area.bottomRight.x)/2}%`}
+                    y={`${(feature.area.topLeft.y + feature.area.bottomRight.y)/2}%`}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fill="currentColor"
+                    className="text-blue-600 dark:text-blue-400 opacity-70"
+                  >
+                    {feature.name}
+                  </text>
+                </g>
+              )
+            } else {
+              // Render other features as rectangles with rounded corners
+              return (
+                <g key={index}>
+                  <rect
+                    x={`${feature.area.topLeft.x}%`}
+                    y={`${feature.area.topLeft.y}%`}
+                    width={`${width}%`}
+                    height={`${height}%`}
+                    rx="5"
+                    fill={`url(#${fillId})`}
+                    className="opacity-50"
+                  />
+                  <text
+                    x={`${feature.area.topLeft.x + width/2}%`}
+                    y={`${feature.area.topLeft.y + height/2}%`}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fill="currentColor"
+                    className="text-gray-700 dark:text-gray-300 opacity-70"
+                  >
+                    {feature.name}
+                  </text>
+                </g>
+              )
+            }
+          })}
+        </svg>
         
-        {/* Locations */}
+        {/* Grid overlay for reference */}
+        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+        
+        {/* Connections layer */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none">
+          {worldMapSystem.connections.map(connection => {
+            const fromLoc = worldMap.locations.find(l => l.id === connection.fromLocationId)
+            const toLoc = worldMap.locations.find(l => l.id === connection.toLocationId)
+            
+            if (!fromLoc || !toLoc) return null
+            
+            // Calculate control point for curved roads
+            const dx = toLoc.coordinates.x - fromLoc.coordinates.x
+            const dy = toLoc.coordinates.y - fromLoc.coordinates.y
+            const cx = (fromLoc.coordinates.x + toLoc.coordinates.x) / 2 + dy * 0.1
+            const cy = (fromLoc.coordinates.y + toLoc.coordinates.y) / 2 - dx * 0.1
+            
+            return (
+              <g key={connection.id}>
+                {connection.connectionType === 'road' ? (
+                  <path
+                    d={`M ${fromLoc.coordinates.x}% ${fromLoc.coordinates.y}% Q ${cx}% ${cy}% ${toLoc.coordinates.x}% ${toLoc.coordinates.y}%`}
+                    stroke="#8b5cf6"
+                    strokeWidth="3"
+                    fill="none"
+                    opacity="0.6"
+                  />
+                ) : (
+                  <path
+                    d={`M ${fromLoc.coordinates.x}% ${fromLoc.coordinates.y}% Q ${cx}% ${cy}% ${toLoc.coordinates.x}% ${toLoc.coordinates.y}%`}
+                    stroke="#6b7280"
+                    strokeWidth="2"
+                    strokeDasharray="5,5"
+                    fill="none"
+                    opacity="0.5"
+                  />
+                )}
+              </g>
+            )
+          })}
+        </svg>
+        
+        {/* Locations layer */}
         {worldMap.locations.map(location => (
           <div
             key={location.id}
             className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer 
-              hover:scale-110 transition-transform ${getLocationColor(location.type)}`}
+              hover:scale-110 transition-transform z-10 ${getLocationColor(location.type)}`}
             style={{ left: `${location.coordinates.x}%`, top: `${location.coordinates.y}%` }}
             onClick={() => setSelectedLocation(location)}
           >
             <div className="flex flex-col items-center">
-              <span className="text-2xl">{getLocationIcon(location.type)}</span>
-              <span className="text-xs mt-1 bg-white dark:bg-gray-700 px-1 rounded shadow-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-full p-2 shadow-lg">
+                <span className="text-2xl">{getLocationIcon(location.type)}</span>
+              </div>
+              <span className="text-xs mt-1 bg-white dark:bg-gray-700 px-2 py-1 rounded shadow-md font-medium">
                 {location.name}
               </span>
             </div>
           </div>
         ))}
-
-        {/* Connections */}
-        {worldMapSystem.connections.map(connection => {
-          const fromLoc = worldMap.locations.find(l => l.id === connection.fromLocationId)
-          const toLoc = worldMap.locations.find(l => l.id === connection.toLocationId)
-          
-          if (!fromLoc || !toLoc) return null
-          
-          return (
-            <svg
-              key={connection.id}
-              className="absolute inset-0 w-full h-full pointer-events-none"
-            >
-              <line
-                x1={`${fromLoc.coordinates.x}%`}
-                y1={`${fromLoc.coordinates.y}%`}
-                x2={`${toLoc.coordinates.x}%`}
-                y2={`${toLoc.coordinates.y}%`}
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeDasharray={connection.connectionType === 'road' ? '0' : '5,5'}
-                className="text-gray-400 dark:text-gray-600"
-              />
-            </svg>
-          )
-        })}
       </div>
     )
   }
@@ -202,8 +326,166 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
         </div>
         
         {/* Region map */}
-        <div className="relative w-full h-[600px] bg-green-50 dark:bg-gray-800 rounded-lg overflow-hidden">
-          <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
+        <div className="relative w-full h-[600px] bg-gradient-to-br from-green-100 to-emerald-200 dark:from-gray-800 dark:to-gray-900 rounded-lg overflow-hidden">
+          {/* Enhanced terrain for regions */}
+          <svg className="absolute inset-0 w-full h-full">
+            <defs>
+              {/* Terrain type gradients for regions */}
+              <linearGradient id="hillGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#a7f3d0" stopOpacity="0.4" />
+                <stop offset="100%" stopColor="#6ee7b7" stopOpacity="0.6" />
+              </linearGradient>
+              <radialGradient id="lakeGradient">
+                <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="#60a5fa" stopOpacity="0.7" />
+              </radialGradient>
+              <linearGradient id="roadGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#d1d5db" stopOpacity="0.8" />
+                <stop offset="50%" stopColor="#9ca3af" stopOpacity="0.9" />
+                <stop offset="100%" stopColor="#d1d5db" stopOpacity="0.8" />
+              </linearGradient>
+            </defs>
+            
+            {/* Render terrain features */}
+            {region.terrain && region.terrain.map((terrain, index) => {
+              if (terrain.type === 'hill') {
+                // Render hills as circles with gradient
+                return (
+                  <g key={index}>
+                    <circle
+                      cx={`${terrain.position.x}%`}
+                      cy={`${terrain.position.y}%`}
+                      r="8%"
+                      fill="url(#hillGradient)"
+                      className="opacity-70"
+                    />
+                    <text
+                      x={`${terrain.position.x}%`}
+                      y={`${terrain.position.y}%`}
+                      textAnchor="middle"
+                      fontSize="9"
+                      fill="currentColor"
+                      className="text-gray-600 dark:text-gray-400"
+                    >
+                      {terrain.name}
+                    </text>
+                  </g>
+                )
+              } else if (terrain.type === 'lake') {
+                // Render lakes as irregular shapes
+                return (
+                  <g key={index}>
+                    <ellipse
+                      cx={`${terrain.position.x}%`}
+                      cy={`${terrain.position.y}%`}
+                      rx="10%"
+                      ry="6%"
+                      fill="url(#lakeGradient)"
+                      transform={`rotate(${index * 30} ${terrain.position.x} ${terrain.position.y})`}
+                    />
+                    <text
+                      x={`${terrain.position.x}%`}
+                      y={`${terrain.position.y}%`}
+                      textAnchor="middle"
+                      fontSize="9"
+                      fill="currentColor"
+                      className="text-blue-700 dark:text-blue-300"
+                    >
+                      {terrain.name}
+                    </text>
+                  </g>
+                )
+              } else if (terrain.type === 'road') {
+                // Roads are rendered separately with connections
+                return null
+              } else {
+                // Other terrain features
+                return (
+                  <g key={index}>
+                    <rect
+                      x={`${terrain.position.x - 5}%`}
+                      y={`${terrain.position.y - 3}%`}
+                      width="10%"
+                      height="6%"
+                      rx="3"
+                      fill={terrain.type === 'bridge' ? '#8b5cf6' : '#6b7280'}
+                      opacity="0.5"
+                    />
+                    <text
+                      x={`${terrain.position.x}%`}
+                      y={`${terrain.position.y}%`}
+                      textAnchor="middle"
+                      fontSize="8"
+                      fill="currentColor"
+                      className="text-gray-700 dark:text-gray-300"
+                    >
+                      {terrain.name}
+                    </text>
+                  </g>
+                )
+              }
+            })}
+            
+            {/* Render regional connections with better paths */}
+            {worldMapSystem.connections
+              .filter(conn => {
+                const fromLoc = region.locations.find(l => l.id === conn.fromLocationId)
+                const toLoc = region.locations.find(l => l.id === conn.toLocationId)
+                return fromLoc && toLoc
+              })
+              .map(connection => {
+                const fromLoc = region.locations.find(l => l.id === connection.fromLocationId)
+                const toLoc = region.locations.find(l => l.id === connection.toLocationId)
+                
+                if (!fromLoc || !toLoc) return null
+                
+                // More sophisticated path calculation
+                const dx = toLoc.coordinates.x - fromLoc.coordinates.x
+                const dy = toLoc.coordinates.y - fromLoc.coordinates.y
+                const distance = Math.sqrt(dx * dx + dy * dy)
+                const cx1 = fromLoc.coordinates.x + dx * 0.25 + dy * 0.15
+                const cy1 = fromLoc.coordinates.y + dy * 0.25 - dx * 0.15
+                const cx2 = fromLoc.coordinates.x + dx * 0.75 - dy * 0.15
+                const cy2 = fromLoc.coordinates.y + dy * 0.75 + dx * 0.15
+                
+                return (
+                  <g key={connection.id}>
+                    {connection.connectionType === 'road' ? (
+                      <>
+                        {/* Road background */}
+                        <path
+                          d={`M ${fromLoc.coordinates.x}% ${fromLoc.coordinates.y}% C ${cx1}% ${cy1}% ${cx2}% ${cy2}% ${toLoc.coordinates.x}% ${toLoc.coordinates.y}%`}
+                          stroke="#6b7280"
+                          strokeWidth="6"
+                          fill="none"
+                          opacity="0.3"
+                        />
+                        {/* Road surface */}
+                        <path
+                          d={`M ${fromLoc.coordinates.x}% ${fromLoc.coordinates.y}% C ${cx1}% ${cy1}% ${cx2}% ${cy2}% ${toLoc.coordinates.x}% ${toLoc.coordinates.y}%`}
+                          stroke="#9ca3af"
+                          strokeWidth="4"
+                          fill="none"
+                          opacity="0.7"
+                        />
+                      </>
+                    ) : (
+                      <path
+                        d={`M ${fromLoc.coordinates.x}% ${fromLoc.coordinates.y}% C ${cx1}% ${cy1}% ${cx2}% ${cy2}% ${toLoc.coordinates.x}% ${toLoc.coordinates.y}%`}
+                        stroke="#a78bfa"
+                        strokeWidth="2"
+                        strokeDasharray="4,4"
+                        fill="none"
+                        opacity="0.6"
+                      />
+                    )}
+                  </g>
+                )
+              })}
+          </svg>
+          
+          {/* Grid overlay */}
+          <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
           
           {/* Locations */}
           {region.locations && region.locations.length > 0 ? (
@@ -211,13 +493,15 @@ const WorldMapDisplay: React.FC<WorldMapDisplayProps> = ({ worldMapSystem }) => 
             <div
               key={location.id}
               className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer 
-                hover:scale-110 transition-transform ${getLocationColor(location.type)}`}
+                hover:scale-110 transition-transform z-10 ${getLocationColor(location.type)}`}
               style={{ left: `${location.coordinates.x}%`, top: `${location.coordinates.y}%` }}
               onClick={() => setSelectedLocation(location)}
             >
               <div className="flex flex-col items-center">
-                <span className="text-2xl">{getLocationIcon(location.type)}</span>
-                <span className="text-xs mt-1 bg-white dark:bg-gray-700 px-1 rounded shadow-sm">
+                <div className="bg-white dark:bg-gray-800 rounded-full p-1.5 shadow-lg">
+                  <span className="text-xl">{getLocationIcon(location.type)}</span>
+                </div>
+                <span className="text-xs mt-1 bg-white dark:bg-gray-700 px-2 py-0.5 rounded shadow-md font-medium">
                   {location.name}
                 </span>
               </div>
