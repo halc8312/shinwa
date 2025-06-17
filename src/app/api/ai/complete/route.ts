@@ -61,9 +61,9 @@ export async function POST(request: NextRequest) {
 
     // Check AI usage limits
     const canGenerate = await AIUsageService.canGenerateChapter(session.user.id);
-    if (!canGenerate.allowed) {
+    if (!canGenerate.canGenerate) {
       return NextResponse.json(
-        { error: canGenerate.reason || 'AI usage limit exceeded' },
+        { error: 'AI usage limit exceeded' },
         { status: 403 }
       );
     }
