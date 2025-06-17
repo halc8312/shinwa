@@ -115,25 +115,19 @@ export default function ProjectDashboard() {
   }
 
   const loadChapters = async () => {
-    console.log('Loading chapters for project:', projectId)
     const stored = localStorage.getItem(`shinwa-chapters-${projectId}`)
     if (stored) {
       try {
         const parsedData = JSON.parse(stored)
-        console.log('Parsed chapter data:', parsedData)
         const loadedChapters = parsedData.map((ch: any) => ({
           ...ch,
           createdAt: new Date(ch.createdAt),
           updatedAt: new Date(ch.updatedAt)
         }))
-        console.log('Loaded chapters:', loadedChapters)
-        console.log('Chapter numbers:', loadedChapters.map((ch: any) => ch.number))
         setChapters(loadedChapters)
       } catch (error) {
         console.error('Failed to load chapters:', error)
       }
-    } else {
-      console.log('No stored chapters found for project:', projectId)
     }
   }
 
@@ -510,24 +504,16 @@ ${pendingChapter.content}
     if (storedChapters) {
       try {
         currentChapters = JSON.parse(storedChapters)
-        console.log('Chapters from localStorage:', currentChapters)
       } catch (error) {
         console.error('Failed to parse chapters from localStorage:', error)
       }
     }
-
-    // デバッグ: 現在の章の状態を確認
-    console.log('Current chapters from state:', chapters)
-    console.log('Current chapters from localStorage:', currentChapters)
-    console.log('Chapter numbers from localStorage:', currentChapters.map(ch => ch.number))
 
     // 既存の章番号の最大値を取得して +1 する（重複を防ぐため）
     const maxChapterNumber = currentChapters.length > 0 
       ? Math.max(...currentChapters.map(ch => ch.number)) 
       : 0
     const nextChapterNumber = maxChapterNumber + 1
-    
-    console.log('Next chapter number:', nextChapterNumber)
     
     setIsExecuting(true)
     setExecutionLog([`第${nextChapterNumber}章の執筆を開始します...`])
@@ -560,7 +546,6 @@ ${pendingChapter.content}
       })
 
       engine.on('flowComplete', (context) => {
-        console.log('Flow complete with context:', context)
       })
 
       // 章立て情報をコンテキストに追加
@@ -611,8 +596,6 @@ ${pendingChapter.content}
           if (!result.validationResult.isValid) {
             setExecutionLog(prev => [...prev, '⚠️ 検証で問題が見つかりました'])
             setExecutionLog(prev => [...prev, `検証結果: ${result.validationResult.issues.length}件の問題`])
-            // 検証結果をコンソールにも出力（デバッグ用）
-            console.log('Validation Result:', result.validationResult)
             // 自動的に検証セレクターを表示
             setShowValidationSelector(true)
           }
@@ -1211,10 +1194,6 @@ ${pendingChapter.content}
                         setIsExecuting(false)
                         setValidationResult(null)
                         
-                        // デバッグ: 編集保存後の章リストを確認
-                        console.log('Saved chapters (edit):', updatedChapters)
-                        console.log('Chapter numbers after save (edit):', updatedChapters.map(ch => ch.number))
-                        
                         router.push(`/projects/${projectId}/chapters/${pendingChapter.id}`)
                       }
                     }}
@@ -1242,10 +1221,6 @@ ${pendingChapter.content}
                         setIsExecuting(false)
                         setValidationResult(null)
                         setExecutionLog(prev => [...prev, '章を保存しました。'])
-                        
-                        // デバッグ: 保存後の章リストを確認
-                        console.log('Saved chapters:', updatedChapters)
-                        console.log('Chapter numbers after save:', updatedChapters.map(ch => ch.number))
                         
                         // 保存後に章リストを再読み込み（念のため）
                         setTimeout(() => {

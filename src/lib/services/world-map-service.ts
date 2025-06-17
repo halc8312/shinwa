@@ -1059,11 +1059,8 @@ export class WorldMapService {
 
     // 場所が見つからない場合の処理
     if (!fromLocationData) {
-      console.log(`[validateTravel] From location "${fromLocation}" not found in map for ${characterName}`)
-      
       // 記述的な場所名の場合は警告レベルを下げる
       if (this.isDescriptiveLocation(fromLocation)) {
-        console.log(`[validateTravel] "${fromLocation}" is descriptive, returning info level`)
         return {
           isValid: true,
           message: `${characterName}の移動元「${fromLocation}」は一般的な記述です。物語の文脈では問題ありませんが、具体的な地名の使用を推奨します。`,
@@ -1071,7 +1068,6 @@ export class WorldMapService {
         }
       }
       
-      console.log(`[validateTravel] "${fromLocation}" is NOT descriptive, returning error`)
       // 類似する場所名を提案
       const suggestions = this.getSimilarLocations(fromLocation, worldMapSystem)
       const suggestionText = suggestions.length > 0 

@@ -59,13 +59,8 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
       }
     }
 
-    const envApiKey = provider === 'openai' 
-      ? process.env.NEXT_PUBLIC_OPENAI_API_KEY
-      : process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY
-    
-    if (envApiKey && !apiKey) {
-      setApiKey(envApiKey)
-    }
+    // API keys should only be stored on the server side
+    // Remove any client-side environment variable usage
   }, [provider, currentProvider, apiKeys])
 
   const validateSettings = async () => {

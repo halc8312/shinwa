@@ -441,10 +441,6 @@ function StateManagementTab({ chapters, characters, worldSettings, worldMapSyste
   }
 
   const characterStates = characters.map(character => {
-    // デバッグログ
-    console.log(`Checking character ${character.name} (${character.id})`)
-    console.log('Current state charactersPresent:', currentState?.charactersPresent)
-    
     const isPresent = currentState?.charactersPresent?.includes(character.id) || false
     
     // キャラクターの位置追跡システムから位置情報を取得
@@ -1060,18 +1056,14 @@ function CharacterOverviewTab({ characters, chapters }: {
 
   // キャラクターの登場頻度を計算
   const characterAppearances = characters.map(character => {
-    console.log(`Calculating appearances for ${character.name} (${character.id})`)
-    
     const chaptersWithCharacter = chapters
       .filter(ch => {
         const isPresent = ch.state.charactersPresent?.includes(character.id)
-        console.log(`Chapter ${ch.number} - charactersPresent:`, ch.state.charactersPresent, 'includes', character.id, '?', isPresent)
         return isPresent
       })
       .sort((a, b) => a.number - b.number)
     
     const appearances = chaptersWithCharacter.map(ch => ch.number)
-    console.log(`${character.name} appearances:`, appearances)
     
     return {
       character,

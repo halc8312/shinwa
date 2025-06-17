@@ -217,9 +217,6 @@ ${relevantCharacters.map(c => `${c.name}: ${c.role}, ${c.personality}`).join('\n
       }
     }
     
-    // デバッグ情報
-    console.log(`コンテキスト構築完了: ${totalTokens}/${this.contextWindow.availableForContext} トークン使用`)
-    
     return selectedItems.join('\n\n')
   }
 

@@ -18,8 +18,7 @@ export class OpenAIProvider implements AIProvider {
     this.client = new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseUrl,
-      organization: config.organization,
-      dangerouslyAllowBrowser: true
+      organization: config.organization
     })
   }
 

@@ -86,11 +86,9 @@ export class FlowEngine {
       throw new Error(`Step ${stepId} not found`)
     }
 
-    console.log(`Executing step: ${step.name}`)
     this.executionHistory.push(stepId)
 
     if (step.conditions && !this.evaluateConditions(step.conditions)) {
-      console.log(`Skipping step ${stepId} due to conditions`)
       if (step.nextSteps.length > 0) {
         await this.executeStep(step.nextSteps[0])
       }

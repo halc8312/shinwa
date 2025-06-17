@@ -306,9 +306,9 @@ export async function getProjectRulesEngine(projectId: string): Promise<RulesEng
     throw new Error('Project not found')
   }
 
-  const customRules = JSON.parse(
-    localStorage.getItem(`shinwa-custom-rules-${projectId}`) || '[]'
-  )
+  const customRules = typeof window !== 'undefined' 
+    ? JSON.parse(localStorage.getItem(`shinwa-custom-rules-${projectId}`) || '[]')
+    : []
 
   return new RulesEngine(project.settings.writingRules, customRules)
 }
