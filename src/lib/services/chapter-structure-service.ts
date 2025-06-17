@@ -65,11 +65,6 @@ export class ChapterStructureService {
     ]
     
     try {
-      // デバッグ用ログ
-      console.log(`[ChapterStructureService] Generating structure for ${chapterCount} chapters`)
-      console.log(`[ChapterStructureService] Model settings:`, modelSettings)
-      console.log(`[ChapterStructureService] Characters available:`, projectData.characters?.length || 0)
-      console.log(`[ChapterStructureService] World settings available:`, !!projectData.worldSettings)
       
       const response = await aiManager.complete({
         model: modelSettings.model,
@@ -84,9 +79,6 @@ export class ChapterStructureService {
       // 章立ての品質チェック
       const hasCharacterIds = chapters.some(ch => ch.charactersInvolved && ch.charactersInvolved.length > 0)
       const hasUniqueTitle = chapters.some(ch => ch.title && ch.title !== '')
-      console.log(`[ChapterStructureService] Generated chapters quality check:`)
-      console.log(`[ChapterStructureService] - Has character IDs: ${hasCharacterIds}`)
-      console.log(`[ChapterStructureService] - Has unique titles: ${hasUniqueTitle}`)
       
       return {
         totalChapters: chapterCount,
@@ -99,7 +91,6 @@ export class ChapterStructureService {
       }
     } catch (error) {
       console.error('Failed to generate chapter structure:', error)
-      console.warn('Using fallback structure with enhanced project data integration')
       // フォールバック：プロジェクトデータを活用した詳細な章立てを生成
       return this.createFallbackStructure(params, chapterCount, acts, projectData)
     }
@@ -680,7 +671,6 @@ ${this.getResponseFormatInstructions(chapterCount)}
       )
       
       if (characterByName) {
-        console.log(`[ChapterStructureService] Converting character name "${item}" to ID "${characterByName.id}"`)
         convertedIds.push(characterByName.id)
       } else {
         console.warn(`[ChapterStructureService] Could not find character for "${item}"`)

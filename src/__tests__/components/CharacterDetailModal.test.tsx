@@ -27,12 +27,14 @@ describe('CharacterDetailModal', () => {
       {
         characterId: 'char-2',
         type: 'friend',
-        description: 'Best friend since childhood'
+        description: 'Best friend since childhood',
+        dynamic: 'supportive'
       },
       {
         characterId: 'char-3',
         type: 'rival',
-        description: 'Competing for the same goal'
+        description: 'Competing for the same goal',
+        dynamic: 'competitive'
       }
     ],
     arc: {

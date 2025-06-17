@@ -16,8 +16,7 @@ describe('WorldMapDisplay', () => {
           name: 'Capital City',
           type: 'capital',
           description: 'The capital',
-          coordinates: { x: 50, y: 50 },
-          importance: 'high'
+          coordinates: { x: 50, y: 50 }
         }
       ]
     },
@@ -31,12 +30,12 @@ describe('WorldMapDisplay', () => {
         locations: [
           {
             id: 'region-loc-1',
-            regionId: 'region-1',
             name: 'Northern Town',
             type: 'town',
             description: 'A northern town',
             coordinates: { x: 60, y: 40 },
-            localDetails: {}
+            importance: 'minor',
+            services: []
           }
         ],
         terrain: []
@@ -50,12 +49,12 @@ describe('WorldMapDisplay', () => {
         locations: [
           {
             id: 'region-loc-2',
-            regionId: 'region-2',
             name: 'Southern Village',
             type: 'village',
             description: 'A southern village',
             coordinates: { x: 40, y: 60 },
-            localDetails: {}
+            importance: 'minor',
+            services: []
           }
         ],
         terrain: []

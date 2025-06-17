@@ -43,7 +43,6 @@ export class NovelFlowExecutor implements FlowExecutor {
   }
 
   async executeStep(step: FlowStep, context: FlowContext): Promise<FlowContext> {
-    console.log(`Executing step: ${step.name} (${step.type})`)
     this.flowEngine?.log(`ステップの詳細: ${step.name} (${step.type})`, 'info')
 
     // ルールエンジンを初期化（初回のみ）
@@ -158,7 +157,6 @@ export class NovelFlowExecutor implements FlowExecutor {
       modelSettings = getFeatureModelSettings(this.projectId, 'defaultModel')
     }
 
-    console.log(`Executing ${step.id} with model: ${modelSettings.model}, maxTokens: ${modelSettings.maxTokens}, temperature: ${modelSettings.temperature}`)
     this.flowEngine?.log(`AI設定 - モデル: ${modelSettings.model}, トークン上限: ${modelSettings.maxTokens}, 温度: ${modelSettings.temperature}`, 'info')
 
     const response = await aiManager.complete({
@@ -168,7 +166,6 @@ export class NovelFlowExecutor implements FlowExecutor {
       maxTokens: modelSettings.maxTokens
     })
 
-    console.log(`${step.id} response length: ${response.content.length} characters`)
     this.flowEngine?.log(`生成完了 - 文字数: ${response.content.length}`, 'info')
 
     const result = this.parseWritingResponse(step.id, response.content)
@@ -314,7 +311,6 @@ export class NovelFlowExecutor implements FlowExecutor {
     if (step.id === 'update-state') {
       // 章のコンテンツから登場キャラクターを抽出
       const appearingCharacters = await this.extractCharactersFromContent(context)
-      console.log('Extracted characters from content:', appearingCharacters)
       
       // 時間と場所のデフォルト値を設定
       let time = context.chapterPlan?.time || context.previousState?.time || '不明'
@@ -345,8 +341,6 @@ export class NovelFlowExecutor implements FlowExecutor {
         worldChanges: this.extractWorldChanges(context),
         foreshadowing: this.updateForeshadowing(context)
       }
-
-      console.log('New state charactersPresent:', newState.charactersPresent)
 
       return { newState }
     }
@@ -822,14 +816,11 @@ ${JSON.stringify(context.previousChapters, null, 2)}
   }
 
   private extractBackgroundEvents(content: string): BackgroundEvent[] {
-    console.log('Extracting background events from:', content.substring(0, 200) + '...')
-    
     try {
       // JSONブロックを探す
       const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/)
       if (jsonMatch) {
         const jsonString = jsonMatch[1].trim()
-        console.log('Found JSON block:', jsonString.substring(0, 100) + '...')
         
         // JSONをパース
         const parsed = JSON.parse(jsonString)
@@ -852,15 +843,12 @@ ${JSON.stringify(context.previousChapters, null, 2)}
             visibility: ['hidden', 'hinted', 'revealed'].includes(event.visibility) ? event.visibility : 'hidden'
           }))
         
-        console.log(`Extracted ${validEvents.length} valid events`)
-        
         if (validEvents.length > 0) {
           return validEvents
         }
       }
     } catch (error) {
       console.error('Failed to parse background events JSON:', error)
-      console.error('Content that failed to parse:', content)
     }
 
     // フォールバック：別の形式を試す
@@ -884,7 +872,6 @@ ${JSON.stringify(context.previousChapters, null, 2)}
     }
 
     // 最終フォールバック：デフォルトイベントを返す
-    console.warn('Using fallback background events')
     return [
       {
         id: generateId(),
@@ -1003,7 +990,6 @@ ${JSON.stringify(context.previousChapters, null, 2)}
         )
         
         if (quickCheck.likelyResolved) {
-          console.log(`伏線 "${f.hint}" が第${chapterNumber}章で回収されたことを確認しました。`)
           return {
             ...f,
             status: 'revealed' as const,
@@ -1021,7 +1007,6 @@ ${JSON.stringify(context.previousChapters, null, 2)}
       // 回収予定章に到達した場合の処理（本文がまだない場合）
       if (f.plannedRevealChapter && f.plannedRevealChapter === chapterNumber && 
           f.status === 'planted' && !context.chapterContent) {
-        console.log(`伏線 "${f.hint}" が第${chapterNumber}章で回収予定です。`)
         // まだ本文がない場合は状態を変更しない（後で検証される）
         return f
       }
@@ -1034,19 +1019,15 @@ ${JSON.stringify(context.previousChapters, null, 2)}
 
   private async extractCharactersFromContent(context: FlowContext): Promise<string[]> {
     if (!context.chapterContent || this.availableCharacters.length === 0) {
-      console.log('No chapter content or no available characters')
       return []
     }
     
     const content = context.chapterContent.toLowerCase()
     const appearingCharacterIds: string[] = []
     
-    console.log('Available characters for extraction:', this.availableCharacters.map(c => ({ id: c.id, name: c.name })))
-    
     // 各キャラクターの名前が本文に含まれているかチェック
     this.availableCharacters.forEach(character => {
       if (character.name && content.includes(character.name.toLowerCase())) {
-        console.log(`Found character ${character.name} in content`)
         appearingCharacterIds.push(character.id)
       }
       // 別名もチェック
@@ -1055,13 +1036,11 @@ ${JSON.stringify(context.previousChapters, null, 2)}
           content.includes(alias.toLowerCase())
         )
         if (hasAlias && !appearingCharacterIds.includes(character.id)) {
-          console.log(`Found character ${character.name} by alias in content`)
           appearingCharacterIds.push(character.id)
         }
       }
     })
     
-    console.log('Extracted character IDs:', appearingCharacterIds)
     return appearingCharacterIds
   }
 
@@ -1071,7 +1050,6 @@ ${JSON.stringify(context.previousChapters, null, 2)}
    */
   private convertCharacterNamesToIds(charactersArray: string[]): string[] {
     if (!this.availableCharacters || this.availableCharacters.length === 0) {
-      console.log('No available characters for conversion')
       return charactersArray
     }
 
@@ -1092,7 +1070,6 @@ ${JSON.stringify(context.previousChapters, null, 2)}
       )
       
       if (characterByName) {
-        console.log(`Converting character name "${item}" to ID "${characterByName.id}"`)
         convertedIds.push(characterByName.id)
       } else {
         console.warn(`Could not find character for "${item}", keeping as-is`)
@@ -1139,28 +1116,21 @@ ${JSON.stringify(context.previousChapters, null, 2)}
   }
 
   private async loadPreviousChapter(chapterNumber: number): Promise<Chapter | null> {
-    console.log(`Loading previous chapter ${chapterNumber} for project ${this.projectId}`)
     const stored = localStorage.getItem(`shinwa-chapters-${this.projectId}`)
     if (stored) {
       try {
         const chapters = JSON.parse(stored)
-        console.log(`Found ${chapters.length} chapters, looking for chapter ${chapterNumber}`)
         const previousChapter = chapters.find((ch: any) => ch.number === chapterNumber)
         if (previousChapter) {
-          console.log(`Found previous chapter ${chapterNumber}, title: ${previousChapter.title}`)
           return {
             ...previousChapter,
             createdAt: new Date(previousChapter.createdAt),
             updatedAt: new Date(previousChapter.updatedAt)
           }
-        } else {
-          console.log(`Previous chapter ${chapterNumber} not found`)
         }
       } catch (error) {
         console.error('Failed to load previous chapter:', error)
       }
-    } else {
-      console.log('No chapters found in storage')
     }
     
     return null
@@ -1215,7 +1185,6 @@ ${JSON.stringify(context.previousChapters, null, 2)}
     // 世界地図システムを読み込む
     const worldMapSystem = this.worldMapService.loadWorldMapSystem()
     if (!worldMapSystem) {
-      console.log('World map system not loaded, skipping travel validation')
       return { movements, warnings }
     }
 

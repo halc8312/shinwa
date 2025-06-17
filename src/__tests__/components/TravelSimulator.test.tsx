@@ -14,18 +14,16 @@ describe('TravelSimulator', () => {
         {
           id: 'loc-1',
           name: 'City A',
-          type: 'city',
+          type: 'major_city',
           description: 'Starting city',
-          coordinates: { x: 30, y: 30 },
-          importance: 'high'
+          coordinates: { x: 30, y: 30 }
         },
         {
           id: 'loc-2',
           name: 'City B',
-          type: 'city',
+          type: 'major_city',
           description: 'Destination city',
-          coordinates: { x: 70, y: 70 },
-          importance: 'high'
+          coordinates: { x: 70, y: 70 }
         }
       ]
     },
@@ -36,7 +34,7 @@ describe('TravelSimulator', () => {
         id: 'conn-1',
         fromLocationId: 'loc-1',
         toLocationId: 'loc-2',
-        type: 'road',
+        connectionType: 'road',
         bidirectional: true,
         difficulty: 'easy'
       }

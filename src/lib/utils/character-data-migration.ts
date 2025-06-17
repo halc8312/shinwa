@@ -61,7 +61,6 @@ export function migrateProjectCharacterData(projectId: string) {
           )
           
           if (characterByName) {
-            console.log(`[Migration] Converting character name "${item}" to ID "${characterByName.id}" in chapter ${chapter.number}`)
             convertedIds.push(characterByName.id)
             hasChanges = true
           } else {
@@ -89,7 +88,6 @@ export function migrateProjectCharacterData(projectId: string) {
     // 変更があった場合のみ保存
     if (modified) {
       localStorage.setItem(`shinwa-chapters-${projectId}`, JSON.stringify(updatedChapters))
-      console.log(`[Migration] Updated character data for project ${projectId}`)
     }
   } catch (error) {
     console.error(`[Migration] Failed to migrate character data for project ${projectId}:`, error)
@@ -140,8 +138,6 @@ export function cleanupCharacterLocations(projectId: string) {
   Object.keys(locations).forEach(charId => {
     if (characters.some(c => c.id === charId)) {
       validLocations[charId] = locations[charId]
-    } else {
-      console.log(`[Cleanup] Removing invalid character location entry: ${charId}`)
     }
   })
   
