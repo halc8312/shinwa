@@ -49,7 +49,7 @@ export const PLANS = {
       'エクスポート機能',
       '優先サポート',
     ],
-    priceId: process.env.STRIPE_PRICE_ID_PRO,
+    priceId: null, // Will be set server-side
     price: 1000,
   },
   enterprise: {
@@ -63,7 +63,7 @@ export const PLANS = {
       '専任サポート',
       'カスタマイズ対応',
     ],
-    priceId: process.env.STRIPE_PRICE_ID_ENTERPRISE,
+    priceId: null, // Will be set server-side
     price: 5000,
   },
 };
@@ -71,13 +71,25 @@ export const PLANS = {
 export type PlanType = keyof typeof PLANS;
 
 export const getStripePriceId = (plan: PlanType): string | null => {
-  return PLANS[plan].priceId || null;
+  // Price IDs should be retrieved from environment variables on the server side
+  if (typeof window === 'undefined') {
+    // Server-side only
+    if (plan === 'pro') {
+      return process.env.STRIPE_PRICE_ID_PRO || null;
+    } else if (plan === 'enterprise') {
+      return process.env.STRIPE_PRICE_ID_ENTERPRISE || null;
+    }
+  }
+  return null;
 };
 
 export const getPlanByPriceId = (priceId: string): PlanType => {
-  for (const [key, plan] of Object.entries(PLANS)) {
-    if (plan.priceId === priceId) {
-      return key as PlanType;
+  // This function should only be called server-side
+  if (typeof window === 'undefined') {
+    if (priceId === process.env.STRIPE_PRICE_ID_PRO) {
+      return 'pro';
+    } else if (priceId === process.env.STRIPE_PRICE_ID_ENTERPRISE) {
+      return 'enterprise';
     }
   }
   return 'free';
