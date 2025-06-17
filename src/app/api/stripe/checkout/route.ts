@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth-options';
-import { getStripe, PLANS, type PlanType } from '@/lib/stripe';
+import { getStripe, PLANS, type PlanType, getStripePriceId } from '@/lib/stripe';
 import { SubscriptionService } from '@/lib/services/subscription-service';
 import { prisma } from '@/lib/prisma';
 
@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const planData = PLANS[plan as PlanType];
-    if (!planData.priceId) {
+    const priceId = getStripePriceId(plan as PlanType);
+    if (!priceId) {
       return NextResponse.json(
         { error: 'Price ID not configured' },
         { status: 500 }
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       payment_method_types: ['card'],
       line_items: [
         {
-          price: planData.priceId,
+          price: priceId,
           quantity: 1,
         },
       ],
