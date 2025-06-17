@@ -1,7 +1,6 @@
 import { AIProvider, AIProviderConfig, AICompletionOptions, AICompletionResponse } from './types'
-import { OpenAIProvider } from './providers/openai'
-import { AnthropicProvider } from './providers/anthropic'
 import { AIModel } from './models'
+import { aiClient } from './client'
 
 export type ProviderType = 'openai' | 'anthropic' | 'custom'
 
@@ -13,7 +12,6 @@ export interface CustomProvider {
 }
 
 export class AIManager {
-  private providers: Map<string, AIProvider> = new Map()
   private currentProvider: string | null = null
   private customProviders: Map<string, CustomProvider> = new Map()
 
@@ -49,21 +47,7 @@ export class AIManager {
   }
 
   registerProvider(name: string, config: AIProviderConfig): void {
-    let provider: AIProvider
-    
-    switch (name.toLowerCase()) {
-      case 'openai':
-        provider = new OpenAIProvider(config)
-        break
-      case 'anthropic':
-        provider = new AnthropicProvider(config)
-        break
-      default:
-        throw new Error(`Unknown provider: ${name}`)
-    }
-    
-    this.providers.set(name, provider)
-    
+    // プロバイダー名を記録するだけで、実際の初期化はサーバーサイドで行う
     if (!this.currentProvider) {
       this.currentProvider = name
     }
@@ -84,53 +68,39 @@ export class AIManager {
   }
 
   setCurrentProvider(name: string): void {
-    if (!this.providers.has(name)) {
-      throw new Error(`Provider ${name} not registered`)
-    }
     this.currentProvider = name
   }
 
-  getCurrentProvider(): AIProvider | null {
-    if (!this.currentProvider) return null
-    return this.providers.get(this.currentProvider) || null
+  getCurrentProvider(): string | null {
+    return this.currentProvider
   }
 
-  getProvider(name: string): AIProvider | null {
-    return this.providers.get(name) || null
+  getProvider(name: string): string | null {
+    return name
   }
 
   getAllProviders(): string[] {
-    return Array.from(this.providers.keys())
+    // サポートされているプロバイダーのリストを返す
+    return ['openai', 'anthropic']
   }
 
   async complete(options: AICompletionOptions): Promise<AICompletionResponse> {
-    const provider = this.getCurrentProvider()
-    if (!provider) {
+    if (!this.currentProvider) {
       throw new Error('No AI provider configured')
     }
     
-    return provider.complete(options)
+    return aiClient.complete(this.currentProvider, options)
   }
 
   async completeWithProvider(
     providerName: string, 
     options: AICompletionOptions
   ): Promise<AICompletionResponse> {
-    const provider = this.getProvider(providerName)
-    if (!provider) {
-      throw new Error(`Provider ${providerName} not found`)
-    }
-    
-    return provider.complete(options)
+    return aiClient.complete(providerName, options)
   }
 
   async validateApiKey(providerName: string): Promise<boolean> {
-    const provider = this.getProvider(providerName)
-    if (!provider) {
-      throw new Error(`Provider ${providerName} not found`)
-    }
-    
-    return provider.validateApiKey()
+    return aiClient.validateApiKey(providerName)
   }
 
   isModelSupported(modelId: string, providerName: string): boolean {
