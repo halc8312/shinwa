@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model Account {
@@ -16,12 +16,12 @@ model Account {
   type               String
   provider           String
   providerAccountId  String
-  refresh_token      String?  @db.Text
-  access_token       String?  @db.Text
+  refresh_token      String?
+  access_token       String?
   expires_at         Int?
   token_type         String?
   scope              String?
-  id_token           String?  @db.Text
+  id_token           String?
   session_state      String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -65,7 +65,7 @@ model VerificationToken {
 model Project {
   id          String   @id @default(cuid())
   name        String
-  description String   @db.Text
+  description String
   novelType   String   @default("medium")
   userId      String
   createdAt   DateTime @default(now())
@@ -96,10 +96,10 @@ model Chapter {
   title           String
   type            String
   targetLength    Int
-  content         String   @db.Text
-  summary         String?  @db.Text
+  content         String
+  summary         String?
   status          String   @default("draft")
-  notes           String?  @db.Text
+  notes           String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
@@ -116,12 +116,12 @@ model Character {
   role            String
   age             String?
   gender          String?
-  personality     String   @db.Text
-  background      String   @db.Text
-  appearance      String?  @db.Text
-  goals           String?  @db.Text
+  personality     String
+  background      String
+  appearance      String?
+  goals           String?
   relationships   Json?
-  notes           String?  @db.Text
+  notes           String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
