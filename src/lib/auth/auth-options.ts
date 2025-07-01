@@ -5,6 +5,10 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
+// Validate required environment variables
+const googleClientId = process.env.GOOGLE_CLIENT_ID
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -46,10 +50,20 @@ export const authOptions: NextAuthOptions = {
         }
       }
     }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    })
+    // Only add Google provider if credentials are available
+    ...(googleClientId && googleClientSecret ? [
+      GoogleProvider({
+        clientId: googleClientId,
+        clientSecret: googleClientSecret,
+        authorization: {
+          params: {
+            prompt: "consent",
+            access_type: "offline",
+            response_type: "code"
+          }
+        }
+      })
+    ] : [])
   ],
   session: {
     strategy: 'jwt'

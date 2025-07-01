@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { 
   WorldMapSystem, 
   Character, 
@@ -53,6 +53,7 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
     }
   } | null>(null)
   const [isCalculatingRoute, setIsCalculatingRoute] = useState<boolean>(false)
+  const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Get all locations from world map and regions
   const allLocations = useMemo(() => {
@@ -283,6 +284,12 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
       return
     }
     
+    // Clear any existing interval
+    if (simulationIntervalRef.current) {
+      clearInterval(simulationIntervalRef.current)
+      simulationIntervalRef.current = null
+    }
+    
     setIsSimulating(true)
     setSimulationProgress(0)
     
@@ -293,10 +300,13 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
     }
     
     // Simulate progress
-    const interval = setInterval(() => {
+    simulationIntervalRef.current = setInterval(() => {
       setSimulationProgress(prev => {
         if (prev >= 100) {
-          clearInterval(interval)
+          if (simulationIntervalRef.current) {
+            clearInterval(simulationIntervalRef.current)
+            simulationIntervalRef.current = null
+          }
           return 100
         }
         return prev + 5
@@ -313,6 +323,15 @@ const TravelSimulator: React.FC<TravelSimulatorProps> = ({
       onTravelComplete(selectedCharacterId, destinationId)
     }
   }
+  
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (simulationIntervalRef.current) {
+        clearInterval(simulationIntervalRef.current)
+      }
+    }
+  }, [])
 
   // Get route visualization data
   const routeVisualization = useMemo(() => {
