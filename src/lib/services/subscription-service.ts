@@ -94,34 +94,49 @@ export class SubscriptionService {
     plan: PlanType;
     canAccessFeature: (feature: string) => boolean;
   }> {
-    const subscription = await this.getSubscription(userId);
+    try {
+      const subscription = await this.getSubscription(userId);
 
-    const hasActiveSubscription = Boolean(
-      subscription?.status === 'active' &&
-      subscription?.stripeCurrentPeriodEnd &&
-      subscription.stripeCurrentPeriodEnd > new Date()
-    );
+      const hasActiveSubscription = Boolean(
+        subscription?.status === 'active' &&
+        subscription?.stripeCurrentPeriodEnd &&
+        subscription.stripeCurrentPeriodEnd > new Date()
+      );
 
-    const plan = (subscription?.plan || 'free') as PlanType;
+      const plan = (subscription?.plan || 'free') as PlanType;
 
-    const canAccessFeature = (feature: string): boolean => {
-      const featureAccess: Record<string, PlanType[]> = {
-        unlimited_projects: ['pro', 'enterprise'],
-        unlimited_ai_generation: ['pro', 'enterprise'],
-        team_collaboration: ['enterprise'],
-        api_access: ['enterprise'],
-        export_feature: ['pro', 'enterprise'],
+      const canAccessFeature = (feature: string): boolean => {
+        const featureAccess: Record<string, PlanType[]> = {
+          unlimited_projects: ['pro', 'enterprise'],
+          unlimited_ai_generation: ['pro', 'enterprise'],
+          team_collaboration: ['enterprise'],
+          api_access: ['enterprise'],
+          export_feature: ['pro', 'enterprise'],
+        };
+
+        const allowedPlans = featureAccess[feature] || [];
+        return allowedPlans.includes(plan);
       };
 
-      const allowedPlans = featureAccess[feature] || [];
-      return allowedPlans.includes(plan);
-    };
-
-    return {
-      hasActiveSubscription,
-      plan,
-      canAccessFeature,
-    };
+      return {
+        hasActiveSubscription,
+        plan,
+        canAccessFeature,
+      };
+    } catch (error: any) {
+      console.error('Subscription check failed:', error);
+      
+      // テーブルが存在しない場合やその他のエラーの場合は、無料プランとして扱う
+      if (error.message?.includes('does not exist') || error.code === 'P2021') {
+        console.warn('Subscription table not found. Treating as free plan.');
+      }
+      
+      return {
+        hasActiveSubscription: false,
+        plan: 'free' as PlanType,
+        canAccessFeature: (feature: string) => false,
+      };
+    }
   }
 
   static async enforceProjectLimit(userId: string): Promise<boolean> {

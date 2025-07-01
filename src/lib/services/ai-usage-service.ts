@@ -8,32 +8,50 @@ export class AIUsageService {
    * 現在の使用期間を取得または作成
    */
   static async getCurrentPeriod(userId: string) {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-    // 現在の期間の使用状況を取得
-    let usage = await prisma.aIUsage.findFirst({
-      where: {
-        userId,
-        periodStart: { lte: now },
-        periodEnd: { gt: now },
-      },
-    });
-
-    // 存在しない場合は新規作成
-    if (!usage) {
-      usage = await prisma.aIUsage.create({
-        data: {
+      // 現在の期間の使用状況を取得
+      let usage = await prisma.aIUsage.findFirst({
+        where: {
           userId,
-          periodStart: startOfMonth,
-          periodEnd: endOfMonth,
-          chapterGenCount: 0,
+          periodStart: { lte: now },
+          periodEnd: { gt: now },
         },
       });
-    }
 
-    return usage;
+      // 存在しない場合は新規作成
+      if (!usage) {
+        usage = await prisma.aIUsage.create({
+          data: {
+            userId,
+            periodStart: startOfMonth,
+            periodEnd: endOfMonth,
+            chapterGenCount: 0,
+          },
+        });
+      }
+
+      return usage;
+    } catch (error: any) {
+      console.error('Failed to get AI usage period:', error);
+      
+      // テーブルが存在しない場合は、仮のオブジェクトを返す
+      if (error.message?.includes('does not exist') || error.code === 'P2021') {
+        console.warn('AIUsage table not found. Returning default usage.');
+        return {
+          id: 'temp-id',
+          userId,
+          chapterGenCount: 0,
+          periodStart: new Date(),
+          periodEnd: new Date(),
+        };
+      }
+      
+      throw error;
+    }
   }
 
   /**
@@ -70,23 +88,34 @@ export class AIUsageService {
    * 章生成回数を記録
    */
   static async recordChapterGeneration(userId: string): Promise<void> {
-    const { plan } = await SubscriptionService.checkSubscriptionStatus(userId);
-    
-    // 有料プランの場合は記録しない
-    if (plan !== 'free') {
-      return;
-    }
+    try {
+      const { plan } = await SubscriptionService.checkSubscriptionStatus(userId);
+      
+      // 有料プランの場合は記録しない
+      if (plan !== 'free') {
+        return;
+      }
 
-    const usage = await this.getCurrentPeriod(userId);
-    
-    await prisma.aIUsage.update({
-      where: { id: usage.id },
-      data: {
-        chapterGenCount: {
-          increment: 1,
+      const usage = await this.getCurrentPeriod(userId);
+      
+      // テーブルが存在しない場合は記録をスキップ
+      if (usage.id === 'temp-id') {
+        console.warn('Skipping AI usage recording - table not found');
+        return;
+      }
+      
+      await prisma.aIUsage.update({
+        where: { id: usage.id },
+        data: {
+          chapterGenCount: {
+            increment: 1,
+          },
         },
-      },
-    });
+      });
+    } catch (error: any) {
+      console.error('Failed to record AI usage:', error);
+      // エラーが発生しても処理を継続
+    }
   }
 
   /**
