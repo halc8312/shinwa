@@ -86,10 +86,13 @@ export const getStripePriceId = (plan: PlanType): string | null => {
 export const getPlanByPriceId = (priceId: string): PlanType => {
   // This function should only be called server-side
   if (typeof window === 'undefined') {
-    if (priceId === process.env.STRIPE_PRICE_ID_PRO) {
+    // 開発環境のプライスIDに対応
+    if (priceId === 'dev_price_pro' || priceId === process.env.STRIPE_PRICE_ID_PRO) {
       return 'pro';
-    } else if (priceId === process.env.STRIPE_PRICE_ID_ENTERPRISE) {
+    } else if (priceId === 'dev_price_enterprise' || priceId === process.env.STRIPE_PRICE_ID_ENTERPRISE) {
       return 'enterprise';
+    } else if (priceId === 'dev_price_free') {
+      return 'free';
     }
   }
   return 'free';

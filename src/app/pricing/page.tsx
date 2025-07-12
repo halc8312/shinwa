@@ -27,23 +27,46 @@ export default function PricingPage() {
     setLoading(plan);
 
     try {
-      const response = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ plan }),
-      });
+      // 開発環境では直接プランを更新
+      if (process.env.NODE_ENV !== 'production') {
+        const response = await fetch('/api/dev/update-subscription', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ plan }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (data.url) {
-        window.location.href = data.url;
+        if (data.success) {
+          alert(data.message);
+          router.push('/account');
+        } else {
+          console.error('Failed to update subscription:', data.error);
+          alert('プランの更新に失敗しました: ' + data.error);
+        }
       } else {
-        console.error('Failed to create checkout session');
+        // 本番環境ではStripeを使用
+        const response = await fetch('/api/stripe/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ plan }),
+        });
+
+        const data = await response.json();
+
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          console.error('Failed to create checkout session');
+        }
       }
     } catch (error) {
       console.error('Error:', error);
+      alert('エラーが発生しました');
     } finally {
       setLoading(null);
     }
@@ -54,6 +77,13 @@ export default function PricingPage() {
       <Header />
       <div className="flex-grow py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
+          {process.env.NODE_ENV !== 'production' && (
+            <div className="mb-8 bg-yellow-100 dark:bg-yellow-900 p-4 rounded-lg">
+              <p className="text-yellow-800 dark:text-yellow-200 text-center">
+                開発モード: 申し込むボタンをクリックすると、決済をスキップして直接プランが変更されます
+              </p>
+            </div>
+          )}
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
               料金プラン

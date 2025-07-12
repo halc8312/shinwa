@@ -57,6 +57,34 @@ export default function AccountPage() {
     }
   }
 
+  const handleDevPlanChange = async (plan: string) => {
+    if (process.env.NODE_ENV === 'production') return
+
+    try {
+      const response = await fetch('/api/dev/update-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ plan }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert(data.message)
+        // 再読み込みしてサブスクリプション情報を更新
+        await fetchSubscription()
+      } else {
+        console.error('Failed to update subscription:', data.error)
+        alert('プランの更新に失敗しました: ' + data.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('エラーが発生しました')
+    }
+  }
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -166,6 +194,41 @@ export default function AccountPage() {
                   </Button>
                 )}
               </div>
+
+              {/* 開発モード用のプラン切り替えボタン */}
+              {process.env.NODE_ENV !== 'production' && (
+                <div className="mt-6 p-4 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-3">
+                    開発モード: 以下のボタンで直接プランを切り替えできます
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => handleDevPlanChange('free')}
+                      variant="secondary"
+                      className="text-sm"
+                      disabled={subscription?.plan === 'free'}
+                    >
+                      無料プランに変更
+                    </Button>
+                    <Button
+                      onClick={() => handleDevPlanChange('pro')}
+                      variant="secondary"
+                      className="text-sm"
+                      disabled={subscription?.plan === 'pro'}
+                    >
+                      プロプランに変更
+                    </Button>
+                    <Button
+                      onClick={() => handleDevPlanChange('enterprise')}
+                      variant="secondary"
+                      className="text-sm"
+                      disabled={subscription?.plan === 'enterprise'}
+                    >
+                      エンタープライズプランに変更
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
