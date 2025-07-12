@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Project, Chapter, Character, WorldSettings, WritingRules, WorldMapSystem } from '@/lib/types'
+import { Project, Chapter, Character, WorldSettings, WritingRules, WorldMapSystem, PlotThread } from '@/lib/types'
 import { projectService } from '@/lib/services/project-service'
 import { characterService } from '@/lib/services/character-service'
 import { worldService } from '@/lib/services/world-service'
@@ -15,6 +15,9 @@ import { calculateForeshadowingScopeRanges, isForeshadowingOverdue } from '@/lib
 import AIAssistant from '@/components/dashboard/AIAssistant'
 import WritingNotes from '@/components/collaboration/WritingNotes'
 import ForeshadowingHealthReport from '@/components/dashboard/ForeshadowingHealthReport'
+import PlotThreadManager from '@/components/dashboard/PlotThreadManager'
+import PlotThreadVisualizer from '@/components/dashboard/PlotThreadVisualizer'
+import PlotDensityAnalyzer from '@/components/dashboard/PlotDensityAnalyzer'
 
 type TabType = 'overview' | 'state' | 'timeline' | 'foreshadowing' | 'characters' | 'plot'
 
@@ -225,7 +228,7 @@ export default function ProjectDashboard() {
             <CharacterOverviewTab characters={characters} chapters={chapters} />
           )}
           {activeTab === 'plot' && (
-            <PlotManagementTab chapters={chapters} chapterStructure={chapterStructure} />
+            <PlotManagementTab chapters={chapters} chapterStructure={chapterStructure} projectId={projectId} />
           )}
         </div>
         
@@ -1396,7 +1399,18 @@ function CharacterOverviewTab({ characters, chapters }: {
 }
 
 // プロットタブ
-function PlotManagementTab({ chapters, chapterStructure }: { chapters: Chapter[], chapterStructure: any }) {
+function PlotManagementTab({ chapters, chapterStructure, projectId }: { chapters: Chapter[], chapterStructure: any, projectId: string }) {
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'threads' | 'density'>('overview')
+  const [plotThreads, setPlotThreads] = useState<PlotThread[]>([])
+  
+  // 複線データを読み込み
+  useEffect(() => {
+    const storedThreads = localStorage.getItem(`shinwa-plot-threads-${projectId}`)
+    if (storedThreads) {
+      setPlotThreads(JSON.parse(storedThreads))
+    }
+  }, [projectId])
+  
   // テンションレベルを章立てから取得、もしくは計算
   const tensionData = chapters.map(chapter => {
     // まず章立てからテンションレベルを取得
@@ -1471,21 +1485,64 @@ function PlotManagementTab({ chapters, chapterStructure }: { chapters: Chapter[]
 
   return (
     <div className="space-y-6">
-      {/* プロット統計 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🎯 総プロット数</h4>
-          <p className="text-2xl font-bold">{allPlotPoints.length}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">✅ 解決済み</h4>
-          <p className="text-2xl font-bold text-green-600">{resolvedPlots}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🔄 進行中</h4>
-          <p className="text-2xl font-bold text-yellow-600">{unresolvedPlots}</p>
-        </div>
+      {/* サブタブナビゲーション */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex space-x-6">
+          <button
+            onClick={() => setActiveSubTab('overview')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeSubTab === 'overview'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            📊 概要
+          </button>
+          <button
+            onClick={() => setActiveSubTab('threads')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeSubTab === 'threads'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            🧵 複線管理
+          </button>
+          <button
+            onClick={() => setActiveSubTab('density')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeSubTab === 'density'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            📈 密度分析
+          </button>
+        </nav>
       </div>
+
+      {/* 概要タブ */}
+      {activeSubTab === 'overview' && (
+        <div className="space-y-6">
+          {/* プロット統計 */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🎯 総プロット数</h4>
+              <p className="text-2xl font-bold">{allPlotPoints.length}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">✅ 解決済み</h4>
+              <p className="text-2xl font-bold text-green-600">{resolvedPlots}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🔄 進行中</h4>
+              <p className="text-2xl font-bold text-yellow-600">{unresolvedPlots}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🧵 複線数</h4>
+              <p className="text-2xl font-bold text-purple-600">{plotThreads.length}</p>
+            </div>
+          </div>
 
       {/* テンション曲線 */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -1602,6 +1659,30 @@ function PlotManagementTab({ chapters, chapterStructure }: { chapters: Chapter[]
           <p className="text-gray-500 text-center">進行中のプロットはありません</p>
         )}
       </div>
+      
+      {/* 複線ビジュアライザー */}
+      {plotThreads.length > 0 && (
+        <PlotThreadVisualizer plotThreads={plotThreads} chapters={chapters} />
+      )}
     </div>
-  )
+  )}
+
+  {/* 複線管理タブ */}
+  {activeSubTab === 'threads' && (
+    <PlotThreadManager 
+      projectId={projectId} 
+      chapters={chapters}
+      onUpdate={setPlotThreads}
+    />
+  )}
+
+  {/* 密度分析タブ */}
+  {activeSubTab === 'density' && (
+    <PlotDensityAnalyzer
+      plotThreads={plotThreads}
+      chapters={chapters}
+    />
+  )}
+</div>
+)
 }
