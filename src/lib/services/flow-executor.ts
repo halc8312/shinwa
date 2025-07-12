@@ -726,6 +726,38 @@ ${context.chapterOutline.foreshadowingToReveal?.map((hint: any) => `- ${hint}`).
 執筆時の注意: ${context.chapterOutline.notes || 'なし'}`)
       }
 
+      // 伏線コンテキストの詳細情報を追加
+      if (context.chapters && context.chapterNumber) {
+        const totalChapters = context.projectMeta?.totalChapters || context.chapters.length
+        const foreshadowingContext = ForeshadowingContextBuilder.buildContext(
+          context.chapters,
+          context.chapterNumber,
+          totalChapters
+        )
+        
+        const foreshadowingPrompt = ForeshadowingContextBuilder.generatePrompt(
+          foreshadowingContext,
+          context.chapterNumber
+        )
+        
+        if (foreshadowingPrompt) {
+          parts.push('【伏線管理システムからの詳細情報】')
+          parts.push(foreshadowingPrompt)
+          
+          // 特に重要な伏線回収の指示を強調
+          if (foreshadowingContext.mustResolve.length > 0) {
+            parts.push('\n【重要：以下の伏線は必ず回収してください】')
+            foreshadowingContext.mustResolve.forEach(f => {
+              parts.push(`- "${f.hint}" (${f.reason})`)
+              parts.push(`  回収方法の提案: ${f.payoff}`)
+              if (f.suggestedResolution) {
+                parts.push(`  推奨される回収方法: ${f.suggestedResolution}`)
+              }
+            })
+          }
+        }
+      }
+
       if (context.settings) {
         parts.push(`物語の設定:\n${JSON.stringify(context.settings, null, 2)}`)
       }
