@@ -60,7 +60,7 @@ jobs:
             mcp__github_ci__get_ci_status,
             mcp__github_ci__get_workflow_run_details,
             mcp__github_ci__download_job_log
-          prompt: |
+          custom_instructions: |
             - ユーザーが話しかけた言語で必ず応答してください（日本語なら日本語で、英語なら英語で）。
             - ファイルやコードを変更する際は、その目的・理由・影響を簡潔に説明してください。
             - 変更内容がわかるよう、関連するコード・設定・手順には十分なコメントや説明を添えてください。
