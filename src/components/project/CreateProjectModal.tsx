@@ -4,6 +4,7 @@ import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
+import ErrorDisplay, { ErrorInfo } from '@/components/ui/ErrorDisplay'
 import { AriaLiveAnnouncer } from '@/components/ui/AriaLiveAnnouncer'
 import { projectService } from '@/lib/services/project-service'
 import { projectGeneratorService, GenerationProgress } from '@/lib/services/project-generator-service'
@@ -25,7 +26,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isCreating, setIsCreating] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<ErrorInfo | null>(null)
   
   // 小説タイプ
   const [novelType, setNovelType] = useState<string>('medium')
@@ -50,22 +51,36 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      setError('プロジェクト名を入力してください')
+      setError({
+        message: 'プロジェクト名を入力してください',
+        isRecoverable: true
+      })
       return
     }
 
     if (useAIGeneration && !description.trim()) {
-      setError('AI生成を使用する場合は、プロジェクトの概要を入力してください')
+      setError({
+        message: 'AI生成を使用する場合は、プロジェクトの概要を入力してください',
+        isRecoverable: true
+      })
       return
     }
 
     if (useAIGeneration && !currentProvider) {
-      setError('AIプロバイダーが設定されていません。設定画面でAPIキーを設定してください。')
+      setError({
+        message: 'AIプロバイダーが設定されていません',
+        code: 'API_KEY_MISSING',
+        isRecoverable: true,
+        recoveryActions: [{
+          label: 'AI設定を開く',
+          action: () => setShowAISettings(true)
+        }]
+      })
       return
     }
 
     setIsCreating(true)
-    setError('')
+    setError(null)
 
     try {
       // プロジェクトを作成（小説タイプを含む）
@@ -102,7 +117,19 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
           }, 1000)
         } catch (genError: any) {
           console.error('AI generation failed:', genError)
-          setError('AI生成に失敗しました。プロジェクトは作成されました。')
+          setError({
+            message: 'AI生成に失敗しました',
+            code: 'AI_GENERATION_FAILED',
+            isRecoverable: true,
+            details: genError.message,
+            recoveryActions: [{
+              label: '別のモデルを試す',
+              action: () => {
+                setSelectedModel(selectedModel === 'gpt-4.1-mini' ? 'gpt-4.1-nano' : 'gpt-4.1-mini')
+                handleCreate()
+              }
+            }]
+          })
           // プロジェクトは作成されているので、一覧を更新
           onCreated()
         } finally {
@@ -114,7 +141,11 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
         router.push(`/projects/${project.id}/setup-chapters`)
       }
     } catch (err: any) {
-      setError(err.message || 'プロジェクトの作成に失敗しました')
+      setError({
+        message: err.message || 'プロジェクトの作成に失敗しました',
+        isRecoverable: true,
+        details: err.stack
+      })
     } finally {
       setIsCreating(false)
     }
@@ -126,7 +157,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
     }
     setName('')
     setDescription('')
-    setError('')
+    setError(null)
     setUseAIGeneration(false)
     setGenerationProgress(null)
     setGenerationComplete(false)
@@ -167,7 +198,11 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
       // 章立て設定画面へ遷移
       router.push(`/projects/${projectId}/setup-chapters`)
     } catch (err: any) {
-      setError('保存に失敗しました: ' + (err.message || '不明なエラー'))
+      setError({
+        message: '保存に失敗しました',
+        isRecoverable: true,
+        details: err.message || '不明なエラー'
+      })
     }
   }
 
@@ -179,7 +214,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
     setShowConfirmation(false)
     setIsGenerating(true)
     setGenerationComplete(false)
-    setError('')
+    setError(null)
     
     try {
       const prompt = regenerateMode === 'withInstruction' && additionalInstruction.trim()
@@ -207,7 +242,16 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
       }, 1000)
     } catch (err: any) {
       console.error('Regeneration failed:', err)
-      setError('再生成に失敗しました: ' + (err.message || '不明なエラー'))
+      setError({
+        message: '再生成に失敗しました',
+        code: 'AI_GENERATION_FAILED',
+        isRecoverable: true,
+        details: err.message || '不明なエラー',
+        recoveryActions: [{
+          label: '設定を確認',
+          action: () => setShowAISettings(true)
+        }]
+      })
       setShowConfirmation(true) // エラー時も確認画面に戻る
     } finally {
       setIsGenerating(false)
@@ -347,7 +391,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
   const handleAISettingsSave = (settings: AISettingsData) => {
     setCurrentProvider(settings.provider)
     setApiKey(settings.provider, settings.apiKey)
-    setError('') // APIキー設定後はエラーをクリア
+    setError(null) // APIキー設定後はエラーをクリア
   }
 
   return (
@@ -380,9 +424,10 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
             </div>
             
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-              </div>
+              <ErrorDisplay 
+                error={error} 
+                className="mb-4"
+              />
             )}
             
             <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -418,7 +463,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="例: ファンタジー小説"
-              error={error && !name.trim() ? error : undefined}
+              error={error && !name.trim() ? error.message : undefined}
               autoFocus
             />
 
@@ -509,19 +554,13 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
             </div>
 
             {error && (
-              <div className="space-y-2">
-                <p className="text-sm text-red-600">{error}</p>
-                <AriaLiveAnnouncer message={error} politeness="assertive" />
-                {error.includes('AIプロバイダーが設定されていません') && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setShowAISettings(true)}
-                  >
-                    AI設定を開く
-                  </Button>
-                )}
-              </div>
+              <>
+                <ErrorDisplay 
+                  error={error} 
+                  onRetry={() => handleCreate()}
+                />
+                <AriaLiveAnnouncer message={error.message} politeness="assertive" />
+              </>
             )}
 
             <div className="flex justify-end gap-3 pt-4">
