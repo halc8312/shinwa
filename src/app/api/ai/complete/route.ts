@@ -34,7 +34,7 @@ function getProvider(providerName: string): AIProvider {
           minPromptLength: 100
         }) as any; // Cast to keep type compatibility
       }
-      return openAIProvider;
+      return openAIProvider as AIProvider;
     
     case 'anthropic':
       if (!anthropicProvider) {
@@ -55,7 +55,7 @@ function getProvider(providerName: string): AIProvider {
           minPromptLength: 100
         }) as any; // Cast to keep type compatibility
       }
-      return anthropicProvider;
+      return anthropicProvider as AIProvider;
     
     default:
       throw new Error(`Unknown provider: ${providerName}`);
