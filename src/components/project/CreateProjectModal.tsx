@@ -4,6 +4,8 @@ import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
+import ErrorDisplay, { ErrorInfo } from '@/components/ui/ErrorDisplay'
+import { AriaLiveAnnouncer } from '@/components/ui/AriaLiveAnnouncer'
 import { projectService } from '@/lib/services/project-service'
 import { projectGeneratorService, GenerationProgress } from '@/lib/services/project-generator-service'
 import { characterService } from '@/lib/services/character-service'
@@ -24,7 +26,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isCreating, setIsCreating] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<ErrorInfo | null>(null)
   
   // 小説タイプ
   const [novelType, setNovelType] = useState<string>('medium')
@@ -49,22 +51,36 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      setError('プロジェクト名を入力してください')
+      setError({
+        message: 'プロジェクト名を入力してください',
+        isRecoverable: true
+      })
       return
     }
 
     if (useAIGeneration && !description.trim()) {
-      setError('AI生成を使用する場合は、プロジェクトの概要を入力してください')
+      setError({
+        message: 'AI生成を使用する場合は、プロジェクトの概要を入力してください',
+        isRecoverable: true
+      })
       return
     }
 
     if (useAIGeneration && !currentProvider) {
-      setError('AIプロバイダーが設定されていません。設定画面でAPIキーを設定してください。')
+      setError({
+        message: 'AIプロバイダーが設定されていません',
+        code: 'API_KEY_MISSING',
+        isRecoverable: true,
+        recoveryActions: [{
+          label: 'AI設定を開く',
+          action: () => setShowAISettings(true)
+        }]
+      })
       return
     }
 
     setIsCreating(true)
-    setError('')
+    setError(null)
 
     try {
       // プロジェクトを作成（小説タイプを含む）
@@ -101,7 +117,19 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
           }, 1000)
         } catch (genError: any) {
           console.error('AI generation failed:', genError)
-          setError('AI生成に失敗しました。プロジェクトは作成されました。')
+          setError({
+            message: 'AI生成に失敗しました',
+            code: 'AI_GENERATION_FAILED',
+            isRecoverable: true,
+            details: genError.message,
+            recoveryActions: [{
+              label: '別のモデルを試す',
+              action: () => {
+                setSelectedModel(selectedModel === 'gpt-4.1-mini' ? 'gpt-4.1-nano' : 'gpt-4.1-mini')
+                handleCreate()
+              }
+            }]
+          })
           // プロジェクトは作成されているので、一覧を更新
           onCreated()
         } finally {
@@ -113,7 +141,11 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
         router.push(`/projects/${project.id}/setup-chapters`)
       }
     } catch (err: any) {
-      setError(err.message || 'プロジェクトの作成に失敗しました')
+      setError({
+        message: err.message || 'プロジェクトの作成に失敗しました',
+        isRecoverable: true,
+        details: err.stack
+      })
     } finally {
       setIsCreating(false)
     }
@@ -125,7 +157,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
     }
     setName('')
     setDescription('')
-    setError('')
+    setError(null)
     setUseAIGeneration(false)
     setGenerationProgress(null)
     setGenerationComplete(false)
@@ -166,7 +198,11 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
       // 章立て設定画面へ遷移
       router.push(`/projects/${projectId}/setup-chapters`)
     } catch (err: any) {
-      setError('保存に失敗しました: ' + (err.message || '不明なエラー'))
+      setError({
+        message: '保存に失敗しました',
+        isRecoverable: true,
+        details: err.message || '不明なエラー'
+      })
     }
   }
 
@@ -178,7 +214,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
     setShowConfirmation(false)
     setIsGenerating(true)
     setGenerationComplete(false)
-    setError('')
+    setError(null)
     
     try {
       const prompt = regenerateMode === 'withInstruction' && additionalInstruction.trim()
@@ -206,7 +242,16 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
       }, 1000)
     } catch (err: any) {
       console.error('Regeneration failed:', err)
-      setError('再生成に失敗しました: ' + (err.message || '不明なエラー'))
+      setError({
+        message: '再生成に失敗しました',
+        code: 'AI_GENERATION_FAILED',
+        isRecoverable: true,
+        details: err.message || '不明なエラー',
+        recoveryActions: [{
+          label: '設定を確認',
+          action: () => setShowAISettings(true)
+        }]
+      })
       setShowConfirmation(true) // エラー時も確認画面に戻る
     } finally {
       setIsGenerating(false)
@@ -346,7 +391,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
   const handleAISettingsSave = (settings: AISettingsData) => {
     setCurrentProvider(settings.provider)
     setApiKey(settings.provider, settings.apiKey)
-    setError('') // APIキー設定後はエラーをクリア
+    setError(null) // APIキー設定後はエラーをクリア
   }
 
   return (
@@ -379,9 +424,10 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
             </div>
             
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-              </div>
+              <ErrorDisplay 
+                error={error} 
+                className="mb-4"
+              />
             )}
             
             <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -417,7 +463,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="例: ファンタジー小説"
-              error={error && !name.trim() ? error : undefined}
+              error={error && !name.trim() ? error.message : undefined}
               autoFocus
             />
 
@@ -431,8 +477,9 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
                 placeholder={useAIGeneration 
                   ? "物語の概要を詳しく入力してください。AIがこの情報を基に世界観やキャラクターを生成します。"
                   : "プロジェクトの概要を入力..."}
-                className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-base shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-3 text-base shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y min-h-[80px] sm:min-h-[100px]"
                 rows={useAIGeneration ? 5 : 3}
+                style={{ touchAction: 'manipulation' }}
               />
             </div>
 
@@ -441,16 +488,16 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 小説の規模
               </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 {Object.entries(NOVEL_TYPE_CONFIGS).map(([key, config]) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => setNovelType(key)}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    className={`min-h-[60px] p-4 rounded-lg border-2 text-left transition-all touch-manipulation ${
                       novelType === key
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 active:border-gray-500'
                     }`}
                   >
                     <div className="text-sm font-medium">{config.name}</div>
@@ -507,18 +554,13 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
             </div>
 
             {error && (
-              <div className="space-y-2">
-                <p className="text-sm text-red-600">{error}</p>
-                {error.includes('AIプロバイダーが設定されていません') && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setShowAISettings(true)}
-                  >
-                    AI設定を開く
-                  </Button>
-                )}
-              </div>
+              <>
+                <ErrorDisplay 
+                  error={error} 
+                  onRetry={() => handleCreate()}
+                />
+                <AriaLiveAnnouncer message={error.message} politeness="assertive" />
+              </>
             )}
 
             <div className="flex justify-end gap-3 pt-4">
@@ -553,14 +595,20 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                         {generationProgress.message}
                       </p>
+                      <AriaLiveAnnouncer 
+                        message={`生成進行中: ${generationProgress.message} - ${generationProgress.progress}%完了`} 
+                        politeness="polite" 
+                      />
                       <div className="max-w-md mx-auto">
-                        <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden shadow-inner">
                           <div 
-                            className="bg-blue-600 h-full transition-all duration-500 ease-out"
+                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-full transition-all duration-700 ease-out relative"
                             style={{ width: `${generationProgress.progress}%` }}
-                          />
+                          >
+                            <div className="absolute inset-0 bg-white opacity-20 animate-pulse" />
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className="text-xs text-gray-500 mt-2 font-medium">
                           {generationProgress.progress}%
                         </p>
                       </div>
@@ -570,22 +618,47 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
 
                 <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
                   <p>生成ステップ:</p>
-                  <ul className="space-y-1">
-                    <li className={generationProgress?.step === 'プロジェクト分析' ? 'font-medium text-blue-600' : ''}>
-                      {generationProgress?.step === 'プロジェクト分析' ? '▶' : '○'} プロジェクト分析
-                    </li>
-                    <li className={generationProgress?.step === '執筆ルール生成' ? 'font-medium text-blue-600' : ''}>
-                      {generationProgress?.step === '執筆ルール生成' ? '▶' : '○'} 執筆ルール生成
-                    </li>
-                    <li className={generationProgress?.step === '世界観設定生成' ? 'font-medium text-blue-600' : ''}>
-                      {generationProgress?.step === '世界観設定生成' ? '▶' : '○'} 世界観設定生成
-                    </li>
-                    <li className={generationProgress?.step === 'キャラクター生成' ? 'font-medium text-blue-600' : ''}>
-                      {generationProgress?.step === 'キャラクター生成' ? '▶' : '○'} キャラクター生成
-                    </li>
-                    <li className={generationProgress?.step === '関係性構築' ? 'font-medium text-blue-600' : ''}>
-                      {generationProgress?.step === '関係性構築' ? '▶' : '○'} 関係性構築
-                    </li>
+                  <ul className="space-y-2">
+                    {[
+                      'プロジェクト分析',
+                      '執筆ルール生成',
+                      '世界観設定生成',
+                      'キャラクター生成',
+                      '関係性構築'
+                    ].map((step, index) => {
+                      const steps = ['プロジェクト分析', '執筆ルール生成', '世界観設定生成', 'キャラクター生成', '関係性構築']
+                      const currentStepIndex = steps.indexOf(generationProgress?.step || '')
+                      const isCompleted = currentStepIndex > index
+                      const isCurrent = generationProgress?.step === step
+                      
+                      return (
+                        <li 
+                          key={step}
+                          className={`flex items-center gap-2 transition-all duration-300 ${
+                            isCurrent ? 'font-medium text-blue-600' : 
+                            isCompleted ? 'text-green-600' : 
+                            'text-gray-400'
+                          }`}
+                        >
+                          <span className="flex-shrink-0">
+                            {isCompleted ? (
+                              <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : isCurrent ? (
+                              <svg className="w-5 h-5 text-blue-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="9" strokeWidth={2} />
+                              </svg>
+                            )}
+                          </span>
+                          <span className={isCompleted ? 'line-through' : ''}>{step}</span>
+                        </li>
+                      )
+                    })}
                   </ul>
                 </div>
               </>
@@ -600,6 +673,10 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   生成内容を確認しています...
                 </p>
+                <AriaLiveAnnouncer 
+                  message="AIによるプロジェクト生成が完了しました。生成内容を確認してください。" 
+                  politeness="assertive" 
+                />
               </div>
             )}
           </div>

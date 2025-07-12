@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useId } from 'react'
 import { cn } from '@/lib/utils'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 interface ModalProps {
   isOpen: boolean
@@ -7,10 +8,15 @@ interface ModalProps {
   title?: string
   children: React.ReactNode
   className?: string
+  ariaLabel?: string
 }
 
-export default function Modal({ isOpen, onClose, title, children, className }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, className, ariaLabel }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  
+  // Use focus trap hook
+  useFocusTrap(modalRef, isOpen)
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -45,26 +51,36 @@ export default function Modal({ isOpen, onClose, title, children, className }: M
           onClose()
         }
       }}
+      aria-hidden="true"
     >
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={!title ? ariaLabel : undefined}
+        tabIndex={-1}
         className={cn(
-          'relative w-full max-w-lg mx-4 sm:mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-xl max-h-[90vh] overflow-y-auto',
+          'relative w-full max-w-lg mx-4 sm:mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-xl max-h-[90vh] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600',
           className
         )}
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {title && (
           <div className="sticky top-0 z-10 flex items-center justify-between p-4 sm:p-6 border-b bg-white dark:bg-gray-800">
-            <h2 className="text-lg sm:text-xl font-semibold">{title}</h2>
+            <h2 id={titleId} className="text-lg sm:text-xl font-semibold">{title}</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+              aria-label="閉じる"
+              type="button"
             >
               <svg
                 className="w-5 h-5 sm:w-6 sm:h-6"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
