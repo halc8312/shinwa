@@ -5,12 +5,14 @@ import { OpenAIProvider } from '@/lib/ai/providers/openai';
 import { AnthropicProvider } from '@/lib/ai/providers/anthropic';
 import { AICompletionOptions, AIProvider } from '@/lib/ai/types';
 import { AIUsageService } from '@/lib/services/ai-usage-service';
+import { RetryAIProvider } from '@/lib/ai/retry-provider';
+import { CachedAIProvider } from '@/lib/ai/cache-provider';
 
 // Server-side AI provider instances
 let openAIProvider: OpenAIProvider | null = null;
 let anthropicProvider: AnthropicProvider | null = null;
 
-// Initialize providers with server-side API keys
+// Initialize providers with server-side API keys, retry logic, and caching
 function getProvider(providerName: string): AIProvider {
   switch (providerName) {
     case 'openai':
@@ -19,7 +21,18 @@ function getProvider(providerName: string): AIProvider {
         if (!apiKey) {
           throw new Error('OpenAI API key not configured on server');
         }
-        openAIProvider = new OpenAIProvider({ apiKey });
+        const baseProvider = new OpenAIProvider({ apiKey });
+        const retryProvider = new RetryAIProvider(baseProvider, {
+          maxRetries: 3,
+          baseDelay: 1000,
+          maxDelay: 10000
+        });
+        openAIProvider = new CachedAIProvider(retryProvider, {
+          ttl: 3600000, // 1 hour cache
+          maxSize: 100,
+          cacheableModels: ['gpt-4.1-mini', 'gpt-4.1-nano'], // Cache responses from faster models
+          minPromptLength: 100
+        }) as any; // Cast to keep type compatibility
       }
       return openAIProvider;
     
@@ -29,7 +42,18 @@ function getProvider(providerName: string): AIProvider {
         if (!apiKey) {
           throw new Error('Anthropic API key not configured on server');
         }
-        anthropicProvider = new AnthropicProvider({ apiKey });
+        const baseProvider = new AnthropicProvider({ apiKey });
+        const retryProvider = new RetryAIProvider(baseProvider, {
+          maxRetries: 3,
+          baseDelay: 1000,
+          maxDelay: 10000
+        });
+        anthropicProvider = new CachedAIProvider(retryProvider, {
+          ttl: 3600000, // 1 hour cache
+          maxSize: 100,
+          cacheableModels: ['claude-3-haiku-20240307'], // Cache responses from faster models
+          minPromptLength: 100
+        }) as any; // Cast to keep type compatibility
       }
       return anthropicProvider;
     
