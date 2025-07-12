@@ -71,6 +71,8 @@ export class RetryAIProvider implements AIProvider {
     let lastError: Error | null = null
 
     for (let attempt = 0; attempt < this.options.maxRetries; attempt++) {
+      let firstChunk = true
+
       try {
         if (!this.provider.completeStream) {
           throw new Error(`Provider ${this.provider.name} does not support streaming`)
@@ -79,7 +81,6 @@ export class RetryAIProvider implements AIProvider {
         // For streaming, we can't retry after starting to yield
         // So we only retry on initial connection errors
         const generator = this.provider.completeStream(options)
-        let firstChunk = true
 
         for await (const chunk of generator) {
           firstChunk = false
