@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { SubscriptionService } from './subscription-service';
 
 export class AIUsageService {
-  private static readonly FREE_PLAN_LIMIT = 10;
+  private static readonly FREE_PLAN_LIMIT = 9999;
 
   /**
    * 現在の使用期間を取得または作成
