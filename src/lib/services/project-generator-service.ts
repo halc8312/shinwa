@@ -202,7 +202,20 @@ export class ProjectGeneratorService {
     try {
       const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/)
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[1])
+        const parsed = JSON.parse(jsonMatch[1])
+        // データ構造の検証と正規化
+        if (!parsed.themes || !Array.isArray(parsed.themes)) {
+          parsed.themes = ['成長', '冒険']
+        }
+        if (!parsed.characterTypes || !Array.isArray(parsed.characterTypes)) {
+          parsed.characterTypes = ['主人公', '仲間', '敵対者']
+        }
+        // 必須フィールドの確認
+        parsed.genre = parsed.genre || 'ファンタジー'
+        parsed.tone = parsed.tone || 'シリアス'
+        parsed.worldComplexity = parsed.worldComplexity || 'moderate'
+        parsed.suggestedLength = parsed.suggestedLength || 'medium'
+        return parsed
       }
       return JSON.parse(response)
     } catch (error) {
@@ -280,7 +293,16 @@ styleフィールドには以下を含めてください：
     try {
       const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/)
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[1])
+        const parsed = JSON.parse(jsonMatch[1])
+        // データ構造の検証と正規化
+        if (!parsed.chapterLength || typeof parsed.chapterLength !== 'object') {
+          parsed.chapterLength = { min: 3000, max: 5000 }
+        }
+        parsed.pointOfView = parsed.pointOfView || 'third'
+        parsed.tense = parsed.tense || 'past'
+        parsed.language = parsed.language || 'ja'
+        parsed.style = parsed.style || '読みやすく、感情豊かな文体で執筆する。'
+        return parsed
       }
       return JSON.parse(response)
     } catch (error) {
@@ -372,6 +394,22 @@ styleフィールドには以下を含めてください：
         // magicSystemがnullの場合は除外
         if (parsed.magicSystem === null) {
           delete parsed.magicSystem
+        }
+        // データ構造の検証と正規化
+        if (parsed.geography && !Array.isArray(parsed.geography)) {
+          parsed.geography = [parsed.geography]
+        }
+        if (parsed.cultures && !Array.isArray(parsed.cultures)) {
+          parsed.cultures = [parsed.cultures]
+        }
+        // magicSystemが文字列の場合はオブジェクトに変換
+        if (parsed.magicSystem && typeof parsed.magicSystem === 'string') {
+          parsed.magicSystem = {
+            name: parsed.magicSystem,
+            rules: [],
+            limitations: [],
+            sources: []
+          }
         }
         return parsed
       }

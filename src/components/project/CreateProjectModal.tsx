@@ -316,22 +316,31 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
                   <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.worldSettings.era}</dd>
                 </div>
               )}
-              {generatedContent.worldSettings.geography && (
+              {generatedContent.worldSettings.geography && Array.isArray(generatedContent.worldSettings.geography) && generatedContent.worldSettings.geography.length > 0 && (
                 <div className="flex gap-3">
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[100px]">地理：</dt>
-                  <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.worldSettings.geography}</dd>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.worldSettings.geography.join('、')}</dd>
                 </div>
               )}
-              {generatedContent.worldSettings.culture && (
+              {generatedContent.worldSettings.cultures && Array.isArray(generatedContent.worldSettings.cultures) && generatedContent.worldSettings.cultures.length > 0 && (
                 <div className="flex gap-3">
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[100px]">文化：</dt>
-                  <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.worldSettings.culture}</dd>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">
+                    {generatedContent.worldSettings.cultures.map((culture: any) => 
+                      typeof culture === 'string' ? culture : culture.name
+                    ).join('、')}
+                  </dd>
                 </div>
               )}
-              {generatedContent.worldSettings.magicSystem && (
+              {generatedContent.worldSettings.magicSystem && typeof generatedContent.worldSettings.magicSystem === 'object' && (
                 <div className="flex gap-3">
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 min-w-[100px]">魔法体系：</dt>
-                  <dd className="text-sm text-gray-900 dark:text-gray-100">{generatedContent.worldSettings.magicSystem}</dd>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">
+                    {generatedContent.worldSettings.magicSystem.name || '魔法システム'}
+                    {generatedContent.worldSettings.magicSystem.rules && generatedContent.worldSettings.magicSystem.rules.length > 0 && 
+                      ` (${generatedContent.worldSettings.magicSystem.rules.length}個のルール)`
+                    }
+                  </dd>
                 </div>
               )}
               {generatedContent.worldSettings.technologyLevel && (
