@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { Chapter, Character, WritingRules, WorldSettings } from '@/lib/types'
 import { aiManager } from '@/lib/ai/manager'
 import { useAppStore } from '@/lib/store'
@@ -25,7 +25,7 @@ type AssistantMode =
   | 'next-chapter-ideas'
   | 'tension-analysis'
 
-export default function AIAssistant({
+const AIAssistant = memo(function AIAssistant({
   projectId,
   projectName,
   chapters,
@@ -41,14 +41,14 @@ export default function AIAssistant({
 
   const { currentProvider } = useAppStore()
 
-  const modeOptions = [
+  const modeOptions = useMemo(() => [
     { value: 'next-chapter-ideas', label: '🎯 次章のアイデア提案' },
     { value: 'plot-suggestion', label: '📚 プロット展開の提案' },
     { value: 'character-development', label: '👥 キャラクター成長の提案' },
     { value: 'foreshadowing-check', label: '🕸️ 伏線の整合性チェック' },
     { value: 'consistency-check', label: '✅ 一貫性チェック' },
     { value: 'tension-analysis', label: '📈 テンション分析と改善案' }
-  ]
+  ], [])
 
   const performAnalysis = async () => {
     if (!currentProvider) {
@@ -201,23 +201,25 @@ ${characterInfo}
         onClick={() => setIsOpen(true)}
         className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110"
         title="AI執筆アシスタント"
+        aria-label="AI執筆アシスタントを開く"
       >
         <span className="text-2xl">🤖</span>
       </button>
 
       {/* AIアシスタントパネル */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="ai-assistant-title">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
             {/* ヘッダー */}
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">
+                <h2 id="ai-assistant-title" className="text-2xl font-bold">
                   🤖 AI執筆アシスタント
                 </h2>
                 <button
                   onClick={() => setIsOpen(false)}
                   className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  aria-label="モーダルを閉じる"
                 >
                   ✕
                 </button>
@@ -292,4 +294,6 @@ ${characterInfo}
       )}
     </>
   )
-}
+})
+
+export default AIAssistant

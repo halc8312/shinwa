@@ -18,6 +18,7 @@ import ForeshadowingHealthReport from '@/components/dashboard/ForeshadowingHealt
 import PlotThreadManager from '@/components/dashboard/PlotThreadManager'
 import PlotThreadVisualizer from '@/components/dashboard/PlotThreadVisualizer'
 import PlotDensityAnalyzer from '@/components/dashboard/PlotDensityAnalyzer'
+import ErrorBoundary from '@/components/ui/ErrorBoundary'
 
 type TabType = 'overview' | 'state' | 'timeline' | 'foreshadowing' | 'characters' | 'plot'
 
@@ -181,7 +182,7 @@ export default function ProjectDashboard() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`
-                    py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap
+                    py-3 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap min-h-[44px] flex items-center
                     ${activeTab === tab.id
                       ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -233,14 +234,16 @@ export default function ProjectDashboard() {
         </div>
         
         {/* AIアシスタント */}
-        <AIAssistant
-          projectId={projectId}
-          projectName={project.name}
-          chapters={chapters}
-          characters={characters}
-          worldSettings={worldSettings}
-          writingRules={writingRules}
-        />
+        <ErrorBoundary>
+          <AIAssistant
+            projectId={projectId}
+            projectName={project.name}
+            chapters={chapters}
+            characters={characters}
+            worldSettings={worldSettings}
+            writingRules={writingRules}
+          />
+        </ErrorBoundary>
       </div>
     </div>
   )
@@ -960,7 +963,9 @@ function ForeshadowingTab({ chapters, projectId }: { chapters: Chapter[]; projec
   return (
     <div className="space-y-6">
       {/* 伏線健全性レポート */}
-      <ForeshadowingHealthReport projectId={projectId} />
+      <ErrorBoundary>
+        <ForeshadowingHealthReport projectId={projectId} />
+      </ErrorBoundary>
       
       {/* 伏線統計 */}
       <div className="space-y-4">
@@ -1603,7 +1608,7 @@ function PlotManagementTab({ chapters, chapterStructure, projectId }: { chapters
         <nav className="-mb-px flex space-x-6">
           <button
             onClick={() => setActiveSubTab('overview')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-3 px-3 border-b-2 font-medium text-sm min-h-[44px] flex items-center ${
               activeSubTab === 'overview'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1613,7 +1618,7 @@ function PlotManagementTab({ chapters, chapterStructure, projectId }: { chapters
           </button>
           <button
             onClick={() => setActiveSubTab('threads')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-3 px-3 border-b-2 font-medium text-sm min-h-[44px] flex items-center ${
               activeSubTab === 'threads'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1623,7 +1628,7 @@ function PlotManagementTab({ chapters, chapterStructure, projectId }: { chapters
           </button>
           <button
             onClick={() => setActiveSubTab('density')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-3 px-3 border-b-2 font-medium text-sm min-h-[44px] flex items-center ${
               activeSubTab === 'density'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1775,26 +1780,32 @@ function PlotManagementTab({ chapters, chapterStructure, projectId }: { chapters
       
       {/* 複線ビジュアライザー */}
       {plotThreads.length > 0 && (
-        <PlotThreadVisualizer plotThreads={plotThreads} chapters={chapters} />
+        <ErrorBoundary>
+          <PlotThreadVisualizer plotThreads={plotThreads} chapters={chapters} />
+        </ErrorBoundary>
       )}
     </div>
   )}
 
   {/* 複線管理タブ */}
   {activeSubTab === 'threads' && (
-    <PlotThreadManager 
-      projectId={projectId} 
-      chapters={chapters}
-      onUpdate={setPlotThreads}
-    />
+    <ErrorBoundary>
+      <PlotThreadManager 
+        projectId={projectId} 
+        chapters={chapters}
+        onUpdate={setPlotThreads}
+      />
+    </ErrorBoundary>
   )}
 
   {/* 密度分析タブ */}
   {activeSubTab === 'density' && (
-    <PlotDensityAnalyzer
-      plotThreads={plotThreads}
-      chapters={chapters}
-    />
+    <ErrorBoundary>
+      <PlotDensityAnalyzer
+        plotThreads={plotThreads}
+        chapters={chapters}
+      />
+    </ErrorBoundary>
   )}
 </div>
 )

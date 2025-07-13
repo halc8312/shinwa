@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, memo } from 'react'
 import { PlotThread, Chapter, PlotPoint } from '@/lib/types'
 
 interface PlotDensityAnalyzerProps {
@@ -7,9 +8,9 @@ interface PlotDensityAnalyzerProps {
   chapters: Chapter[]
 }
 
-export default function PlotDensityAnalyzer({ plotThreads, chapters }: PlotDensityAnalyzerProps) {
+const PlotDensityAnalyzer = memo(function PlotDensityAnalyzer({ plotThreads, chapters }: PlotDensityAnalyzerProps) {
   // 章ごとのプロット密度を計算
-  const calculateDensity = () => {
+  const densityData = useMemo(() => {
     return chapters.map(chapter => {
       // 従来のプロットポイント数
       const plotPoints = chapter.state.plotProgress?.length || 0
@@ -38,10 +39,10 @@ export default function PlotDensityAnalyzer({ plotThreads, chapters }: PlotDensi
         totalDensity
       }
     })
-  }
+  }, [chapters, plotThreads])
 
   // プロットの衝突を検出
-  const detectConflicts = () => {
+  const conflicts = useMemo(() => {
     const conflicts: Array<{
       type: 'overlap' | 'tension' | 'pacing' | 'dependency'
       severity: 'low' | 'medium' | 'high'
@@ -91,7 +92,6 @@ export default function PlotDensityAnalyzer({ plotThreads, chapters }: PlotDensi
     })
 
     // 3. ペーシングの問題
-    const densityData = calculateDensity()
     densityData.forEach((data, index) => {
       if (index > 0) {
         const prevDensity = densityData[index - 1].totalDensity
@@ -124,12 +124,11 @@ export default function PlotDensityAnalyzer({ plotThreads, chapters }: PlotDensi
     })
 
     return conflicts
-  }
+  }, [chapters, plotThreads, densityData])
 
   // 推奨事項を生成
-  const generateRecommendations = () => {
+  const recommendations = useMemo(() => {
     const recommendations: string[] = []
-    const densityData = calculateDensity()
     
     // 密度が低い章
     const lowDensityChapters = densityData.filter(d => d.totalDensity < 2)
@@ -156,11 +155,8 @@ export default function PlotDensityAnalyzer({ plotThreads, chapters }: PlotDensi
     }
     
     return recommendations
-  }
+  }, [densityData, plotThreads])
 
-  const densityData = calculateDensity()
-  const conflicts = detectConflicts()
-  const recommendations = generateRecommendations()
   const maxDensity = Math.max(...densityData.map(d => d.totalDensity), 1)
 
   return (
@@ -169,7 +165,7 @@ export default function PlotDensityAnalyzer({ plotThreads, chapters }: PlotDensi
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4">📊 プロット密度分析</h3>
         
-        <div className="h-48 bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+        <div className="h-48 bg-gray-50 dark:bg-gray-900 rounded-lg p-4" role="img" aria-label="プロット密度グラフ">
           <div className="relative h-full">
             {/* グラフ軸 */}
             <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300"></div>
@@ -184,7 +180,7 @@ export default function PlotDensityAnalyzer({ plotThreads, chapters }: PlotDensi
               {densityData.map((data, index) => (
                 <div key={index} className="flex-1 flex flex-col items-center justify-end group relative">
                   {/* スタックバー */}
-                  <div className="w-full mx-0.5 flex flex-col">
+                  <div className="w-full mx-0.5 flex flex-col" aria-label={`${data.title}: 合計密度${data.totalDensity}`}>
                     {/* マイルストーン */}
                     {data.milestones > 0 && (
                       <div 
@@ -225,7 +221,7 @@ export default function PlotDensityAnalyzer({ plotThreads, chapters }: PlotDensi
         </div>
         
         {/* 凡例 */}
-        <div className="mt-4 flex items-center gap-4 text-xs">
+        <div className="mt-4 flex items-center gap-4 text-xs" role="group" aria-label="グラフの凡例">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-blue-500" />
             <span>プロットポイント</span>
@@ -307,4 +303,6 @@ export default function PlotDensityAnalyzer({ plotThreads, chapters }: PlotDensi
       )}
     </div>
   )
-}
+})
+
+export default PlotDensityAnalyzer

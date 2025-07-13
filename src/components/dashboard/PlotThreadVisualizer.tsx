@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, memo } from 'react'
 import { PlotThread, Chapter } from '@/lib/types'
 
 interface PlotThreadVisualizerProps {
@@ -7,7 +8,7 @@ interface PlotThreadVisualizerProps {
   chapters: Chapter[]
 }
 
-export default function PlotThreadVisualizer({ plotThreads, chapters }: PlotThreadVisualizerProps) {
+const PlotThreadVisualizer = memo(function PlotThreadVisualizer({ plotThreads, chapters }: PlotThreadVisualizerProps) {
   // 複線の色を取得
   const getThreadColor = (type: PlotThread['type']) => {
     switch (type) {
@@ -53,26 +54,37 @@ export default function PlotThreadVisualizer({ plotThreads, chapters }: PlotThre
     return thread.milestones.find(m => m.chapterNumber === chapterNumber)
   }
 
-  // 依存関係の線を描画するための座標を計算
-  const getDependencyPath = (fromThread: PlotThread, toThreadId: string, chapterIndex: number) => {
-    const toThread = plotThreads.find(t => t.id === toThreadId)
-    if (!toThread) return null
-
-    const fromIndex = plotThreads.findIndex(t => t.id === fromThread.id)
-    const toIndex = plotThreads.findIndex(t => t.id === toThreadId)
+  // 依存関係のパスを事前計算
+  const dependencyPaths = useMemo(() => {
+    const paths: Record<string, string | null> = {}
     
-    const fromY = 50 + fromIndex * 180
-    const toY = 50 + toIndex * 180
-    const x = 50 + chapterIndex * 100
-
-    return `M ${x} ${fromY} Q ${x + 50} ${(fromY + toY) / 2} ${x + 100} ${toY}`
-  }
+    plotThreads.forEach((fromThread, fromIndex) => {
+      fromThread.dependencies.forEach(toThreadId => {
+        const toThread = plotThreads.find(t => t.id === toThreadId)
+        if (!toThread) return
+        
+        const toIndex = plotThreads.findIndex(t => t.id === toThreadId)
+        chapters.forEach((chapter, chapterIndex) => {
+          if (!isThreadActive(fromThread, chapter.number)) return
+          
+          const fromY = 50 + fromIndex * 180
+          const toY = 50 + toIndex * 180
+          const x = 50 + chapterIndex * 100
+          
+          const key = `${fromThread.id}-${toThreadId}-${chapter.id}`
+          paths[key] = `M ${x} ${fromY} Q ${x + 50} ${(fromY + toY) / 2} ${x + 100} ${toY}`
+        })
+      })
+    })
+    
+    return paths
+  }, [plotThreads, chapters])
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold mb-4">🎭 複線タイムライン</h3>
       
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" role="region" aria-label="複線タイムライン">
         <div className="min-w-max">
           {/* ヘッダー（章番号） */}
           <div className="flex items-center mb-4 pl-32">
@@ -121,6 +133,8 @@ export default function PlotThreadVisualizer({ plotThreads, chapters }: PlotThre
                                 backgroundColor: getThreadColor(thread.type),
                                 opacity: 0.7
                               }}
+                              role="img"
+                              aria-label={`${thread.name}のテンションレベル: ${height}px`}
                             >
                               {/* マイルストーンマーカー */}
                               {milestone && (
@@ -154,17 +168,18 @@ export default function PlotThreadVisualizer({ plotThreads, chapters }: PlotThre
 
                   {/* 依存関係の線（SVGで描画） */}
                   {thread.dependencies.length > 0 && (
-                    <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: -1 }}>
+                    <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: -1 }} role="img" aria-label="複線の依存関係">
                       {chapters.map((chapter, chapterIndex) => {
                         if (!isThreadActive(thread, chapter.number)) return null
                         
                         return thread.dependencies.map(depId => {
-                          const path = getDependencyPath(thread, depId, chapterIndex)
+                          const key = `${thread.id}-${depId}-${chapter.id}`
+                          const path = dependencyPaths[key]
                           if (!path) return null
                           
                           return (
                             <path
-                              key={`${thread.id}-${depId}-${chapter.id}`}
+                              key={key}
                               d={path}
                               fill="none"
                               stroke="#9ca3af"
@@ -183,7 +198,7 @@ export default function PlotThreadVisualizer({ plotThreads, chapters }: PlotThre
           </div>
 
           {/* 凡例 */}
-          <div className="mt-6 flex items-center gap-6 text-xs">
+          <div className="mt-6 flex items-center gap-6 text-xs" role="group" aria-label="グラフの凡例">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded-full bg-green-500" />
               <span>達成済みマイルストーン</span>
@@ -213,4 +228,6 @@ export default function PlotThreadVisualizer({ plotThreads, chapters }: PlotThre
       </div>
     </div>
   )
-}
+})
+
+export default PlotThreadVisualizer
