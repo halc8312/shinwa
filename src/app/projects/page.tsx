@@ -11,6 +11,7 @@ import AISettings, { AISettingsData } from '@/components/settings/AISettings'
 import { useAppStore } from '@/lib/store'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
+import { SkeletonList } from '@/components/ui/Skeleton'
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
@@ -95,8 +96,8 @@ export default function ProjectsPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <p className="text-gray-500">読み込み中...</p>
+          <div className="space-y-4">
+            <SkeletonList count={3} />
           </div>
         ) : projects.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 sm:p-12 text-center">

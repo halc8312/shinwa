@@ -13,12 +13,15 @@ import Select from '@/components/ui/Select'
 import CultureForm from '@/components/world/CultureForm'
 import WorldMapDisplay from '@/components/world/WorldMapDisplay'
 import TravelSimulator from '@/components/world/TravelSimulator'
+import { useToast } from '@/lib/contexts/ToastContext'
+import { showSuccessToast, showErrorToast } from '@/lib/utils/toast-helpers'
 
 export default function WorldSettingsPage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
   const projectId = params.id as string
+  const { addToast } = useToast()
 
   const [project, setProject] = useState<Project | null>(null)
   const [worldSettings, setWorldSettings] = useState<WorldSettings | null>(null)
@@ -156,11 +159,11 @@ export default function WorldSettingsPage() {
       })
       if (updated) {
         setWorldSettings(updated)
-        alert('基本情報を保存しました')
+        showSuccessToast(addToast, '基本情報を保存しました')
       }
     } catch (error) {
       console.error('Failed to save basic info:', error)
-      alert('保存に失敗しました')
+      showErrorToast(addToast, '保存に失敗しました')
     } finally {
       setIsSaving(false)
     }
@@ -172,11 +175,11 @@ export default function WorldSettingsPage() {
       const updated = await worldService.updateGeography(projectId, geographyForm)
       if (updated) {
         setWorldSettings(updated)
-        alert('地理情報を保存しました')
+        showSuccessToast(addToast, '地理情報を保存しました')
       }
     } catch (error) {
       console.error('Failed to save geography:', error)
-      alert('保存に失敗しました')
+      showErrorToast(addToast, '保存に失敗しました')
     } finally {
       setIsSaving(false)
     }
@@ -202,11 +205,11 @@ export default function WorldSettingsPage() {
       )
       if (updated) {
         setWorldSettings(updated)
-        alert('魔法システムを保存しました')
+        showSuccessToast(addToast, '魔法システムを保存しました')
       }
     } catch (error) {
       console.error('Failed to save magic system:', error)
-      alert('保存に失敗しました')
+      showErrorToast(addToast, '保存に失敗しました')
     } finally {
       setIsSaving(false)
     }
