@@ -224,11 +224,24 @@ export class ChapterStructureService {
     let prompt = `あなたは${genre}小説の構成を専門とする編集者です。
 ${template ? `${template.name}（${template.description}）に基づいて` : '独自の構成で'}、魅力的で詳細な章立てを作成してください。
 
-重要な指示：
-- 提供されたキャラクター情報と世界観設定を必ず活用してください
-- 各章でキャラクターの成長と関係性の変化を具体的に描写してください
-- 世界観の特徴を各章に反映させ、段階的に深化させてください
-- テンプレート的な章立てではなく、この作品固有の展開を作成してください
+【絶対に守るべき重要な指示】
+1. 提供されたキャラクター情報（ID、名前、性格、背景）を必ず活用してください
+2. 提供された世界観設定（世界名、時代、文化）を必ず反映させてください
+3. 各章で具体的なキャラクター名と場所名を使用してください
+4. charactersInvolvedフィールドには必ず提供されたキャラクターIDを使用してください
+
+【避けるべきこと - 以下のような汎用的な内容は絶対に作成しないでください】
+❌ 悪い例：
+- 目的: 物語の導入と設定を行う
+- 主要イベント: キャラクター紹介、世界観の提示
+- 場所: 物語の舞台
+- 登場キャラクター: 主人公、仲間
+
+✅ 良い例（具体的な名前を使用）：
+- 目的: エルサが魔法学院で初めて魔法を発動させ、リオンと出会う
+- 主要イベント: エルサの偶発的な魔法発動、リオンによる救出、学院長からの特別指導の申し出
+- 場所: アルカディア魔法学院の新入生寮
+- 登場キャラクター: ["char_001", "char_002"]（提供されたIDを使用）
 
 `
 
@@ -242,21 +255,22 @@ ${template ? `${template.name}（${template.description}）に基づいて` : '�
     }
 
     prompt += `各章について以下の要素を含めてください：
-1. 章のタイトル（内容を表す具体的なタイトル）
-2. 章の目的（その章で達成すべきこと）
-3. 主要な出来事（3-5個の具体的な出来事）
-4. コンフリクト（葛藤や障害）
-5. 解決または次章への引き
+1. 章のタイトル（その章の具体的な内容を表すタイトル - キャラクター名や場所名を含める）
+2. 章の目的（具体的なキャラクター名を使って、その章で何が起こるか）
+3. 主要な出来事（3-5個、キャラクター名と具体的な行動を含む）
+4. コンフリクト（具体的なキャラクター間の対立や障害）
+5. 解決または次章への引き（具体的な状況変化）
 6. テンションレベル（1-10）
-7. 登場キャラクター（charactersInvolved: 提供されたキャラクターIDを必ず使用）
-8. 場所（location: 世界観設定に基づく具体的な場所）
+7. 登場キャラクター（charactersInvolved: 提供されたキャラクターIDのみを配列で記載）
+8. 場所（location: 提供された世界観の具体的な場所名）
 9. 時間（time: 時間帯や経過時間）
 10. 伏線の設置と回収計画
 
-キャラクターの使用について：
-- 各章でどのキャラクターが登場し、どのような役割を果たすか明確にしてください
-- キャラクターの性格、背景、関係性を考慮した展開を作成してください
-- charactersInvolvedフィールドには、提供されたキャラクターIDを必ず記載してください
+【キャラクターIDの使用について - 極めて重要】
+- charactersInvolvedフィールドには、後述する【主要キャラクター】セクションで提供されるIDのみを使用してください
+- 例: ["char_001", "char_002"] のような形式で記載
+- キャラクター名ではなく、必ずIDを使用してください
+- 章の説明文（目的、イベント等）では名前を使い、charactersInvolvedではIDを使用
 
 ${this.getForeshadowingGuidelines(chapterCount || 10)}
 
@@ -354,7 +368,43 @@ ${this.getForeshadowingGuidelines(chapterCount || 10)}
     chapterCount: number,
     projectData: { writingRules?: WritingRules, worldSettings?: WorldSettings, characters?: Character[] }
   ): string {
+    // キャラクターと世界観を先に配置して重要性を強調
     let prompt = `
+【主要キャラクター】 ※これらのキャラクターを必ず章立てに登場させてください
+`
+    if (projectData.characters && projectData.characters.length > 0) {
+      projectData.characters.forEach(char => {
+        const roleText = char.role ? `（${char.role}）` : ''
+        const backgroundText = char.background ? `\n  背景: ${char.background}` : ''
+        const personalityText = char.personality?.length ? `\n  性格: ${char.personality.join('、')}` : ''
+        prompt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ID: ${char.id} ← charactersInvolvedフィールドにはこのIDを使用
+名前: ${char.name}${roleText}${personalityText}${backgroundText}
+`
+      })
+      prompt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
+    } else {
+      prompt += `（キャラクター情報なし - 作品説明から推測して作成してください）\n`
+    }
+
+    // 世界観設定
+    if (projectData.worldSettings) {
+      prompt += `\n【世界観設定】 ※この世界観を章立てに反映させてください
+世界名: ${projectData.worldSettings.name}
+時代: ${projectData.worldSettings.era}
+${projectData.worldSettings.description ? `説明: ${projectData.worldSettings.description}` : ''}
+`
+      if (projectData.worldSettings.geography?.length) {
+        prompt += `地理: ${projectData.worldSettings.geography.join('、')}\n`
+      }
+      if (projectData.worldSettings.cultures?.length) {
+        prompt += `文化: ${projectData.worldSettings.cultures.map(c => 
+          typeof c === 'string' ? c : c.name
+        ).join('、')}\n`
+      }
+    }
+
+    prompt += `
 【作品情報】
 タイトル: ${params.projectName}
 説明: ${params.description}
@@ -367,39 +417,23 @@ ${this.getForeshadowingGuidelines(chapterCount || 10)}
 ${params.plotOutline || '（未設定）'}
 `
 
-    // 世界観設定を追加
-    if (projectData.worldSettings) {
-      prompt += `\n【世界観設定】
-世界名: ${projectData.worldSettings.name}
-時代: ${projectData.worldSettings.era}
-${projectData.worldSettings.description ? `説明: ${projectData.worldSettings.description}` : ''}
-`
-    }
-
-    // キャラクター情報を追加
-    if (projectData.characters && projectData.characters.length > 0) {
-      prompt += `\n【主要キャラクター】
-`
-      projectData.characters.forEach(char => {
-        const roleText = char.role ? `（${char.role}）` : ''
-        const backgroundText = char.background ? ` - ${char.background}` : ''
-        prompt += `・${char.name}${roleText} [ID: ${char.id}]: ${char.personality?.join('、') || ''}${backgroundText}\n`
-      })
-    }
-
     prompt += `
 【幕構成】
 ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter}章）: ${act.purpose}`).join('\n')}
 
-【重要な作成指針】
-1. 上記で提供されたキャラクター情報を必ず活用し、各章での役割と成長を明確にしてください
-2. 世界観設定を各章の舞台や展開に反映させてください
-3. キャラクター同士の関係性の変化を物語の推進力として活用してください
-4. 各章は独自性を持ちながら、全体として一つの物語を形成するようにしてください
-5. テンプレート的な展開を避け、この作品固有の魅力的な章立てを作成してください
+【絶対に守るべき作成指針】
+1. 各章で上記のキャラクター名を具体的に使用してください（「主人公」ではなく実際の名前）
+2. 各章のcharactersInvolvedには上記で示したキャラクターIDのみを使用してください
+3. 各章のlocationには上記の世界観設定の具体的な場所名を使用してください
+4. 各章の目的・イベントには具体的なキャラクター名と行動を記載してください
+5. 汎用的・テンプレート的な表現は絶対に避けてください
+
+【再度強調：避けるべき汎用表現】
+❌ 「キャラクター紹介」「世界観の提示」「物語の導入」
+✅ 「${projectData.characters?.[0]?.name || 'キャラ名'}が${projectData.worldSettings?.name || '世界名'}で初めて魔法に覚醒する」
 
 上記の情報を基に、${chapterCount}章の詳細な章立てを作成してください。
-必ず提供されたキャラクターIDを使用し、世界観設定を反映させた具体的な展開を作成してください。
+各章で必ず具体的なキャラクター名と場所名を使用し、この作品固有の展開を作成してください。
 
 ${this.getResponseFormatInstructions(chapterCount)}
 `
@@ -417,36 +451,43 @@ ${this.getResponseFormatInstructions(chapterCount)}
 [
   {
     "number": 1,
-    "title": "具体的な章タイトル（例：嵐の夜の出会い、約束の地へ）",
-    "purpose": "この章の目的",
-    "keyEvents": ["出来事1", "出来事2", "出来事3"],
-    "conflict": "この章の葛藤や障害",
-    "resolution": "解決または次への展開",
-    "hook": "次章への引き",
-    "tensionLevel": 5,
-    "charactersInvolved": ["キャラクターID1", "キャラクターID2"],
-    "location": "具体的な場所",
-    "time": "時間帯または経過時間",
+    "title": "嵐の夜、運命の出会い",
+    "purpose": "エルサが魔法学院でリオンと出会い、自身の隠された力に気づく",
+    "keyEvents": [
+      "エルサが図書館で禁書を偶然開いてしまう",
+      "突然発動した魔法でエルサが窮地に陥る",
+      "リオンが現れてエルサを救出する",
+      "学院長がエルサの特殊な才能を見抜く"
+    ],
+    "conflict": "制御できない魔法の発動とエルサの恐怖",
+    "resolution": "リオンの助けで魔法を鎮め、学院長から特別指導を受けることに",
+    "hook": "エルサの魔法に隠された秘密を学院長がほのめかす",
+    "tensionLevel": 6,
+    "charactersInvolved": ["char_001", "char_002", "char_003"],
+    "location": "アルカディア魔法学院の古文書庫",
+    "time": "入学式から3日後の深夜",
     "foreshadowingToPlant": [
       {
-        "hint": "伏線の内容",
-        "scope": "short/medium/long",
-        "significance": "minor/moderate/major",
-        "plannedRevealChapter": 5,
-        "category": "character/plot/world/mystery"
+        "hint": "エルサの魔法が古代の封印と共鳴する描写",
+        "scope": "long",
+        "significance": "major",
+        "plannedRevealChapter": ${Math.min(10, chapterCount)},
+        "category": "mystery"
       }
     ],
-    "foreshadowingToReveal": ["回収する伏線のヒント"],
-    "notes": "執筆時の注意点（省略可）"
+    "foreshadowingToReveal": [],
+    "notes": "エルサの不安と期待を丁寧に描写"
   }
 ]
 \`\`\`
 
-重要：
-- titleフィールドには「第X章」ではなく、内容を表す具体的なタイトルを入れてください
-- charactersInvolvedには、上記で示したキャラクターIDを必ず使用してください
-- 各章で登場するキャラクターの成長、関係性の変化、世界観の深化を反映してください
-- 伏線は物語全体のバランスを考えて配置してください`
+【形式についての重要な注意】
+- titleには章の内容を表す具体的で魅力的なタイトルを付けてください
+- purposeには具体的なキャラクター名を使って、その章で起こることを明確に記載
+- keyEventsは3-5個、それぞれ具体的なキャラクター名と行動を含めてください
+- charactersInvolvedには【主要キャラクター】セクションで示したIDのみを使用（名前ではない）
+- locationは世界観設定に基づく具体的な場所名を記載
+- 各章で物語が確実に前進するよう、明確な変化や発展を含めてください`
     
     // 章数に応じて追加の指示を提供
     if (chapterCount <= 3) {
@@ -547,47 +588,96 @@ ${this.getResponseFormatInstructions(chapterCount)}
    */
   private parseChapterOutlines(content: string, expectedCount: number): ChapterOutline[] {
     try {
+      // まずJSON形式の解析を試みる
       const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/)
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[1])
-        if (Array.isArray(parsed)) {
-          // キャラクター情報を取得
-          const storedCharacters = localStorage.getItem(`shinwa-characters-${this.projectId}`)
-          const characters: Character[] = storedCharacters ? JSON.parse(storedCharacters) : []
-          
-          return parsed.slice(0, expectedCount).map((ch, index) => {
-            // キャラクター名をIDに変換
-            let charactersInvolved = ch.charactersInvolved || []
-            if (charactersInvolved.length > 0 && characters.length > 0) {
-              charactersInvolved = this.convertCharacterNamesToIds(charactersInvolved, characters)
-            }
-            
-            return {
-              number: ch.number || index + 1,
-              title: ch.title && ch.title !== `第${index + 1}章` ? ch.title : '',
-              purpose: ch.purpose || '',
-              keyEvents: ch.keyEvents || [],
-              conflict: ch.conflict,
-              resolution: ch.resolution,
-              hook: ch.hook,
-              targetWordCount: ch.targetWordCount,
-              tensionLevel: ch.tensionLevel || 5,
-              notes: ch.notes,
-              // 新しいフィールド
-              charactersInvolved: charactersInvolved,
-              location: ch.location,
-              time: ch.time,
-              foreshadowingToPlant: ch.foreshadowingToPlant || [],
-              foreshadowingToReveal: ch.foreshadowingToReveal || []
-            }
-          })
+      if (!jsonMatch) {
+        // JSON形式が見つからない場合、直接JSONとして解析を試みる
+        try {
+          const directParsed = JSON.parse(content)
+          if (Array.isArray(directParsed)) {
+            return this.processChapterOutlines(directParsed, expectedCount)
+          }
+        } catch (e) {
+          console.warn('Direct JSON parsing failed, will use fallback')
         }
+        throw new Error('No JSON format found in response')
       }
+      
+      const parsed = JSON.parse(jsonMatch[1])
+      if (Array.isArray(parsed)) {
+        return this.processChapterOutlines(parsed, expectedCount)
+      }
+      
+      throw new Error('Parsed content is not an array')
     } catch (error) {
       console.error('Failed to parse chapter outlines:', error)
+      console.warn('Using enhanced fallback with project data')
+      
+      // 改善されたフォールバック処理：プロジェクトデータを活用
+      // createFallbackStructureメソッドを直接使用せず、ここで簡易版を実装
+      const projectData = this.loadProjectDataSync()
+      return this.createEnhancedFallbackOutlines(expectedCount, projectData)
     }
+  }
+  
+  /**
+   * 章のアウトラインを処理
+   */
+  private processChapterOutlines(chapters: any[], expectedCount: number): ChapterOutline[] {
+    // キャラクター情報を取得
+    const storedCharacters = localStorage.getItem(`shinwa-characters-${this.projectId}`)
+    const characters: Character[] = storedCharacters ? JSON.parse(storedCharacters) : []
     
-    // フォールバック: 基本的な章構成を生成
+    return chapters.slice(0, expectedCount).map((ch, index) => {
+      // キャラクター名をIDに変換
+      let charactersInvolved = ch.charactersInvolved || []
+      if (charactersInvolved.length > 0 && characters.length > 0) {
+        charactersInvolved = this.convertCharacterNamesToIds(charactersInvolved, characters)
+      }
+      
+      return {
+        number: ch.number || index + 1,
+        title: ch.title && ch.title !== `第${index + 1}章` ? ch.title : '',
+        purpose: ch.purpose || '',
+        keyEvents: ch.keyEvents || [],
+        conflict: ch.conflict,
+        resolution: ch.resolution,
+        hook: ch.hook,
+        targetWordCount: ch.targetWordCount,
+        tensionLevel: ch.tensionLevel || 5,
+        notes: ch.notes,
+        // 新しいフィールド
+        charactersInvolved: charactersInvolved,
+        location: ch.location,
+        time: ch.time,
+        foreshadowingToPlant: ch.foreshadowingToPlant || [],
+        foreshadowingToReveal: ch.foreshadowingToReveal || []
+      }
+    })
+  }
+  
+  /**
+   * 同期的にプロジェクトデータを読み込む
+   */
+  private loadProjectDataSync(): { writingRules?: WritingRules, worldSettings?: WorldSettings, characters?: Character[] } {
+    const writingRules = this.loadWritingRules()
+    const worldSettings = this.loadWorldSettings()
+    const characters = this.loadCharacters()
+    
+    return { writingRules, worldSettings, characters }
+  }
+  
+  /**
+   * 改善されたフォールバックアウトラインの作成
+   */
+  private createEnhancedFallbackOutlines(
+    expectedCount: number,
+    projectData: { writingRules?: WritingRules, worldSettings?: WorldSettings, characters?: Character[] }
+  ): ChapterOutline[] {
+    const characters = projectData.characters || []
+    const worldName = projectData.worldSettings?.name || '物語の世界'
+    const era = projectData.worldSettings?.era || '現代'
+    
     return Array.from({ length: expectedCount }, (_, i) => {
       const chapterNum = i + 1
       const progress = i / (expectedCount - 1)
@@ -596,33 +686,73 @@ ${this.getResponseFormatInstructions(chapterCount)}
       let tensionLevel = 5
       let purpose = '物語を展開する'
       let keyEvents: string[] = []
+      let title = ''
+      let location = worldName
+      let time = ''
+      let charactersInvolved: string[] = []
       
       if (progress <= 0.25) {
         // 序盤
         tensionLevel = 3 + Math.floor(progress * 8)
-        purpose = '物語の導入と設定を行う'
-        keyEvents = ['キャラクター紹介', '世界観の提示']
+        title = '始まりの予兆'
+        purpose = characters.length > 0 
+          ? `${characters[0].name}の日常と${worldName}の世界観を確立する`
+          : '主人公の日常と世界観を確立する'
+        keyEvents = [
+          characters.length > 0 ? `${characters[0].name}の登場` : '主人公の登場',
+          `${worldName}の${era}の風景描写`,
+          '物語の発端となる出来事'
+        ]
+        location = `${worldName}の日常的な場所`
+        time = '物語の始まり'
+        charactersInvolved = characters.length > 0 ? [characters[0].id] : []
       } else if (progress <= 0.75) {
         // 中盤
         tensionLevel = 5 + Math.floor((progress - 0.25) * 6)
-        purpose = '対立と葛藤を深める'
-        keyEvents = ['新たな展開', '障害の発生']
+        title = '展開と葛藤'
+        purpose = '対立と葛藤を深め、キャラクターの成長を描く'
+        keyEvents = [
+          '新たな障害の出現',
+          characters.length > 1 ? `${characters[1].name}との関係深化` : '重要人物との出会い',
+          '試練と成長の機会'
+        ]
+        location = `${worldName}の重要な場所`
+        time = '数日後'
+        charactersInvolved = characters.slice(0, Math.min(2, characters.length)).map(c => c.id)
       } else {
         // 終盤
         tensionLevel = 8 + Math.floor((progress - 0.75) * 8)
-        purpose = 'クライマックスへ向けて展開する'
-        keyEvents = ['最終局面', '解決への道筋']
+        title = 'クライマックスへの道'
+        purpose = 'すべての要素が収束し、物語が結末へ向かう'
+        keyEvents = [
+          '最終決戦への準備',
+          '伏線の回収と真実の解明',
+          '最後の選択'
+        ]
+        location = `${worldName}の決戦の地`
+        time = '物語のクライマックス'
+        charactersInvolved = characters.slice(0, Math.min(3, characters.length)).map(c => c.id)
       }
       
       return {
         number: chapterNum,
-        title: '',
+        title,
         purpose,
         keyEvents,
         tensionLevel: Math.max(1, Math.min(10, tensionLevel)),
-        // デフォルトの空配列を設定
-        charactersInvolved: [],
-        foreshadowingToPlant: [],
+        conflict: '章の中心的な葛藤',
+        resolution: chapterNum < expectedCount ? '次章への展開' : '物語の結末',
+        hook: chapterNum < expectedCount ? '次章への引き' : '',
+        location,
+        time,
+        charactersInvolved,
+        foreshadowingToPlant: progress < 0.5 ? [{
+          hint: '重要な秘密の示唆',
+          scope: 'medium',
+          significance: 'moderate',
+          plannedRevealChapter: Math.min(chapterNum + Math.floor(expectedCount * 0.3), expectedCount),
+          category: 'plot'
+        }] : [],
         foreshadowingToReveal: []
       }
     })
