@@ -301,36 +301,10 @@ ${this.getForeshadowingGuidelines(chapterCount || 10)}
     baseSettings: AIModelSettings[keyof AIModelSettings],
     chapterCount: number
   ): AIModelSettings[keyof AIModelSettings] {
-    // 章数に応じてトークン制限を調整
-    // 全ての小説タイプで詳細な章立てが生成できるよう、十分なトークン数を確保
-    let maxTokens = baseSettings.maxTokens
-    let temperature = baseSettings.temperature
-    
-    if (chapterCount <= 3) {
-      // 超短編：詳細な情報を生成できるよう十分なトークンを確保
-      maxTokens = 3000
-      temperature = 0.7
-    } else if (chapterCount <= 5) {
-      // 短編：より詳細な情報のために増加
-      maxTokens = 4000
-      temperature = 0.7
-    } else if (chapterCount <= 15) {
-      // 中編：キャラクターと世界観を反映した詳細な章立てのために大幅増加
-      maxTokens = 6000  // 4500から大幅増加
-      temperature = 0.7
-    } else if (chapterCount <= 30) {
-      // 長編：複雑な構成に対応するため更に増加
-      maxTokens = 12000  // 8000から大幅増加 - 29章分の詳細を確実に生成
-      temperature = 0.7
-    } else if (chapterCount <= 50) {
-      // 超長編：最大限のトークンを使用
-      maxTokens = 16000  // 10000から大幅増加
-      temperature = 0.7
-    } else {
-      // 超超長編：バッチ処理を検討する必要があるレベル
-      maxTokens = 20000  // 最大限のトークンを確保
-      temperature = 0.7
-    }
+    // 全ての小説タイプで最大限のトークン数を確保
+    // 制限による節約効果は限定的なので、一律で最大値を使用
+    const maxTokens = 32768
+    const temperature = baseSettings.temperature || 0.7
     
     return {
       ...baseSettings,
