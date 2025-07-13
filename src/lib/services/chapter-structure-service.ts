@@ -80,6 +80,20 @@ export class ChapterStructureService {
       const hasCharacterIds = chapters.some(ch => ch.charactersInvolved && ch.charactersInvolved.length > 0)
       const hasUniqueTitle = chapters.some(ch => ch.title && ch.title !== '')
       
+      // 生成された章数をチェック
+      if (chapters.length < chapterCount) {
+        console.warn(`警告: 期待される${chapterCount}章に対して、${chapters.length}章しか生成されませんでした。`)
+        // フォールバックで不足分を補完
+        const missingChapters = this.createEnhancedFallbackOutlines(
+          chapterCount - chapters.length,
+          projectData
+        ).map((ch, idx) => ({
+          ...ch,
+          number: chapters.length + idx + 1
+        }))
+        chapters.push(...missingChapters)
+      }
+      
       return {
         totalChapters: chapterCount,
         structure: {
@@ -229,6 +243,7 @@ ${template ? `${template.name}（${template.description}）に基づいて` : '�
 2. 提供された世界観設定（世界名、時代、文化）を必ず反映させてください
 3. 各章で具体的なキャラクター名と場所名を使用してください
 4. charactersInvolvedフィールドには必ず提供されたキャラクターIDを使用してください
+5. 【極めて重要】必ず指定された${chapterCount}章すべての詳細を生成してください。10章で止めないでください
 
 【避けるべきこと - 以下のような汎用的な内容は絶対に作成しないでください】
 ❌ 悪い例：
@@ -305,15 +320,15 @@ ${this.getForeshadowingGuidelines(chapterCount || 10)}
       temperature = 0.7
     } else if (chapterCount <= 30) {
       // 長編：複雑な構成に対応するため更に増加
-      maxTokens = 8000  // 6000から増加
+      maxTokens = 12000  // 8000から大幅増加 - 29章分の詳細を確実に生成
       temperature = 0.7
     } else if (chapterCount <= 50) {
       // 超長編：最大限のトークンを使用
-      maxTokens = 10000  // 8000から増加
+      maxTokens = 16000  // 10000から大幅増加
       temperature = 0.7
     } else {
       // 超超長編：バッチ処理を検討する必要があるレベル
-      maxTokens = 12000
+      maxTokens = 20000  // 最大限のトークンを確保
       temperature = 0.7
     }
     
@@ -435,6 +450,8 @@ ${acts.map(act => `${act.name}（第${act.startChapter}章〜第${act.endChapter
 上記の情報を基に、${chapterCount}章の詳細な章立てを作成してください。
 各章で必ず具体的なキャラクター名と場所名を使用し、この作品固有の展開を作成してください。
 
+【重要】必ず第1章から第${chapterCount}章まで、すべての章を生成してください。省略は一切許されません。
+
 ${this.getResponseFormatInstructions(chapterCount)}
 `
     return prompt
@@ -445,7 +462,9 @@ ${this.getResponseFormatInstructions(chapterCount)}
    */
   private getResponseFormatInstructions(chapterCount: number): string {
     // 全ての小説タイプで必要な情報を含めるよう統一
-    const baseFormat = `各章について、以下の形式のJSON配列で出力してください：
+    const baseFormat = `各章について、以下の形式のJSON配列で出力してください。
+    
+【極めて重要】${chapterCount}章すべてを含む配列を出力してください。10章で切らないでください。
 
 \`\`\`json
 [
@@ -471,17 +490,19 @@ ${this.getResponseFormatInstructions(chapterCount)}
         "hint": "エルサの魔法が古代の封印と共鳴する描写",
         "scope": "long",
         "significance": "major",
-        "plannedRevealChapter": ${Math.min(10, chapterCount)},
+        "plannedRevealChapter": ${Math.min(chapterCount - 5, chapterCount)},
         "category": "mystery"
       }
     ],
     "foreshadowingToReveal": [],
     "notes": "エルサの不安と期待を丁寧に描写"
-  }
+  },
+  // ... 第2章から第${chapterCount}章まですべて同じ形式で記載
 ]
 \`\`\`
 
 【形式についての重要な注意】
+- 必ず${chapterCount}個の章オブジェクトを含む配列を出力してください
 - titleには章の内容を表す具体的で魅力的なタイトルを付けてください
 - purposeには具体的なキャラクター名を使って、その章で起こることを明確に記載
 - keyEventsは3-5個、それぞれ具体的なキャラクター名と行動を含めてください
