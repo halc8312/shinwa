@@ -23,8 +23,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
               variant === 'danger',
           },
           {
-            'h-8 px-3 text-sm': size === 'sm',
-            'h-10 px-4 text-base': size === 'md',
+            'min-h-[44px] h-11 px-4 text-sm': size === 'sm',
+            'min-h-[44px] h-11 px-5 text-base': size === 'md',
             'h-12 px-6 text-lg': size === 'lg',
           },
           className
