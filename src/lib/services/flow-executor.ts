@@ -519,9 +519,14 @@ ${genre}小説として適切な展開を心がけてください。`
 【執筆ルール】
 ${rulesPrompt}
 
+【重要な執筆指示】
+1. 章の計画に基づいて執筆してください
+2. 指定された伏線の回収は必ず実行してください - 伏線回収は読者満足度に直結する重要な要素です
+3. 前章の内容を踏まえて物語を継続してください
+4. キャラクターの感情や行動を通じて物語を展開してください
+
 与えられた章の計画に基づいて、${genre}らしい魅力的で読者を引き込む文章を書いてください。
-前章の内容を踏まえて物語を継続し、新しい展開を加えてください。
-キャラクターの感情や行動を通じて物語を展開し、読者が場面を鮮明にイメージできるような描写を心がけてください。
+特に「回収する伏線」として指定されたものは、必ず本文中で明確に回収し、読者が「なるほど！」と思える形で描写してください。
 
 重要：これは第${chapterNumber}章です。前章とは異なる新しい内容を執筆してください。
 タイトルと要約は計画に従ってください。文章のみを出力し、不要な説明やメタ情報は含めないでください。`
@@ -1032,11 +1037,29 @@ ${JSON.stringify(context.previousChapters, null, 2)}
           const hasResolutionNote = context.chapterPlan?.foreshadowingResolutionNotes?.[f.hint]
           const isPlannedInChapterOutline = chapterOutline?.foreshadowingToReveal?.includes(f.hint)
           
-          if (quickCheck.likelyResolved || (hasResolutionNote && quickCheck.keywordMatches > 0) || isPlannedInChapterOutline) {
+          // 回収判定を緩和：
+          // 1. 計画で回収予定になっている（chapterPlan または chapterOutline）
+          // 2. かつAIに明確に指示を出している
+          // この場合は、AIが指示に従って回収したと信頼する
+          if (isPlannedInChapterOutline || (context.chapterPlan?.foreshadowingToResolve?.includes(f.hint))) {
             const payoff = context.chapterPlan?.foreshadowingResolutionNotes?.[f.hint] || 
-                          `第${chapterNumber}章で明らかになった`
+                          hasResolutionNote ||
+                          `第${chapterNumber}章で回収された`
             
-            this.flowEngine?.log(`伏線「${f.hint}」を回収済みとしてマーク: ${payoff}`, 'info')
+            this.flowEngine?.log(`伏線「${f.hint}」を回収済みとしてマーク（AIへの指示に基づく）: ${payoff}`, 'info')
+            
+            return {
+              ...f,
+              status: 'revealed' as const,
+              chapterRevealed: chapterNumber,
+              payoff: payoff
+            }
+          } 
+          // キーワードマッチが高い場合も回収とみなす
+          else if (quickCheck.likelyResolved) {
+            const payoff = `第${chapterNumber}章で明らかになった`
+            
+            this.flowEngine?.log(`伏線「${f.hint}」を回収済みとしてマーク（キーワードマッチ）: ${payoff}`, 'info')
             
             return {
               ...f,

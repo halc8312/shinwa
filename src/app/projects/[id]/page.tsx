@@ -306,6 +306,56 @@ export default function ProjectDashboard() {
     return character?.name || characterId // フォールバック
   }
 
+  // 伏線の回収状態を全章に反映する関数
+  const propagateForeshadowingResolution = (allChapters: Chapter[], newChapter: Chapter): Chapter[] => {
+    // 新しい章で回収された伏線を探す
+    const resolvedForeshadowing = newChapter.state.foreshadowing?.filter(f => f.status === 'revealed') || []
+    
+    if (resolvedForeshadowing.length === 0) {
+      return allChapters
+    }
+    
+    console.log(`第${newChapter.number}章で${resolvedForeshadowing.length}個の伏線が回収されました`)
+    
+    // 全章を更新
+    return allChapters.map(chapter => {
+      // 新しい章自体はそのまま返す
+      if (chapter.number === newChapter.number) {
+        return newChapter
+      }
+      
+      // 他の章の伏線状態を更新
+      if (chapter.state.foreshadowing && chapter.state.foreshadowing.length > 0) {
+        const updatedForeshadowing = chapter.state.foreshadowing.map(f => {
+          // 回収された伏線と一致するものを探す（ヒントで照合）
+          const resolved = resolvedForeshadowing.find(rf => rf.hint === f.hint)
+          
+          if (resolved && f.status !== 'revealed') {
+            console.log(`第${chapter.number}章の伏線「${f.hint}」を回収済みに更新`)
+            return {
+              ...f,
+              status: 'revealed' as const,
+              chapterRevealed: newChapter.number,
+              payoff: resolved.payoff || `第${newChapter.number}章で回収`
+            }
+          }
+          
+          return f
+        })
+        
+        return {
+          ...chapter,
+          state: {
+            ...chapter.state,
+            foreshadowing: updatedForeshadowing
+          }
+        }
+      }
+      
+      return chapter
+    })
+  }
+
   const handleAISettingsSave = async (settings: AISettingsData) => {
     // AI設定の保存とプロバイダーの登録
     aiManager.registerProvider(settings.provider, {
@@ -1335,6 +1385,10 @@ ${pendingChapter.content}
                           // 新規追加
                           updatedChapters = [...chapters, pendingChapter]
                         }
+                        
+                        // 伏線の回収状態を全章に反映
+                        updatedChapters = propagateForeshadowingResolution(updatedChapters, pendingChapter)
+                        
                         setChapters(updatedChapters)
                         localStorage.setItem(`shinwa-chapters-${projectId}`, JSON.stringify(updatedChapters))
                         setShowChapterPreview(false)
@@ -1363,6 +1417,10 @@ ${pendingChapter.content}
                           // 新規追加
                           updatedChapters = [...chapters, pendingChapter]
                         }
+                        
+                        // 伏線の回収状態を全章に反映
+                        updatedChapters = propagateForeshadowingResolution(updatedChapters, pendingChapter)
+                        
                         setChapters(updatedChapters)
                         localStorage.setItem(`shinwa-chapters-${projectId}`, JSON.stringify(updatedChapters))
                         setShowChapterPreview(false)
