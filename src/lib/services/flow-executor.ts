@@ -1014,24 +1014,56 @@ ${JSON.stringify(context.previousChapters, null, 2)}
       const shouldResolve = context.chapterPlan?.foreshadowingToResolve?.includes(f.hint) ||
                            chapterOutline?.foreshadowingToReveal?.includes(f.hint)
       
-      if (shouldResolve && context.chapterContent) {
-        // 簡易チェックで回収の可能性を確認
-        const quickCheck = ForeshadowingResolutionValidator.quickCheck(
-          context.chapterContent,
-          f.hint
-        )
-        
-        if (quickCheck.likelyResolved) {
-          return {
-            ...f,
-            status: 'revealed' as const,
-            chapterRevealed: chapterNumber,
-            payoff: context.chapterPlan?.foreshadowingResolutionNotes?.[f.hint] || 
-                   `第${chapterNumber}章で明らかになった`
+      if (shouldResolve) {
+        // 計画で回収予定の伏線の場合
+        if (context.chapterContent) {
+          // 簡易チェックで回収の可能性を確認
+          const quickCheck = ForeshadowingResolutionValidator.quickCheck(
+            context.chapterContent,
+            f.hint
+          )
+          
+          this.flowEngine?.log(
+            `伏線「${f.hint}」の回収チェック: ${quickCheck.likelyResolved ? '回収確認' : '未確認'} (キーワードマッチ: ${quickCheck.keywordMatches})`,
+            quickCheck.likelyResolved ? 'info' : 'warning'
+          )
+          
+          // 章の計画で明確に回収予定となっている場合は、チェックが厳密でなくても回収とみなす
+          const hasResolutionNote = context.chapterPlan?.foreshadowingResolutionNotes?.[f.hint]
+          const isPlannedInChapterOutline = chapterOutline?.foreshadowingToReveal?.includes(f.hint)
+          
+          if (quickCheck.likelyResolved || (hasResolutionNote && quickCheck.keywordMatches > 0) || isPlannedInChapterOutline) {
+            const payoff = context.chapterPlan?.foreshadowingResolutionNotes?.[f.hint] || 
+                          `第${chapterNumber}章で明らかになった`
+            
+            this.flowEngine?.log(`伏線「${f.hint}」を回収済みとしてマーク: ${payoff}`, 'info')
+            
+            return {
+              ...f,
+              status: 'revealed' as const,
+              chapterRevealed: chapterNumber,
+              payoff: payoff
+            }
+          } else {
+            console.warn(`伏線 "${f.hint}" は回収予定でしたが、本文中で確認できませんでした。`)
+            this.flowEngine?.log(
+              `伏線「${f.hint}」は回収予定でしたが、本文中で確認できませんでした。`,
+              'warning'
+            )
+            
+            // 回収予定だったが確認できない場合、進行中状態にする
+            return {
+              ...f,
+              status: 'reinforced' as const,
+              notes: `第${chapterNumber}章で回収予定だったが、明確な描写が確認できなかった`
+            }
           }
         } else {
-          console.warn(`伏線 "${f.hint}" は回収予定でしたが、本文中で確認できませんでした。`)
-          // 回収されなかった場合は状態を変更しない
+          // 本文がまだない場合（計画段階）
+          this.flowEngine?.log(
+            `伏線「${f.hint}」は第${chapterNumber}章で回収予定（本文生成待ち）`,
+            'info'
+          )
           return f
         }
       }

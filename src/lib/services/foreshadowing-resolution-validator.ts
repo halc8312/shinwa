@@ -118,25 +118,53 @@ ${plannedResolutions.map(hint => {
     const contentLower = chapterContent.toLowerCase()
     const hintLower = foreshadowingHint.toLowerCase()
     
-    // ヒントのキーワードを抽出
+    // ヒントのキーワードを抽出（助詞や短い単語を除外）
     const keywords = hintLower
-      .split(/[、。\s]+/)
-      .filter(word => word.length > 2)
+      .split(/[、。\s・]+/)
+      .filter(word => word.length > 1 && !['の', 'が', 'を', 'に', 'へ', 'と', 'で', 'は', 'も', 'や', 'から', 'まで', 'より'].includes(word))
     
-    // キーワードの出現をカウント
+    // キーワードが少ない場合は元の文字列も考慮
+    if (keywords.length < 2) {
+      keywords.push(hintLower.replace(/[、。\s]+/g, ''))
+    }
+    
+    // キーワードの出現をカウント（部分一致も許可）
     let matches = 0
+    let partialMatches = 0
+    
     keywords.forEach(keyword => {
       if (contentLower.includes(keyword)) {
         matches++
+      } else {
+        // 部分一致をチェック（キーワードの一部が含まれている）
+        if (keyword.length >= 3) {
+          for (let i = 0; i < keyword.length - 2; i++) {
+            const subKeyword = keyword.substring(i, i + 3)
+            if (contentLower.includes(subKeyword)) {
+              partialMatches += 0.5
+              break
+            }
+          }
+        }
       }
     })
     
-    // キーワードの50%以上が含まれていれば回収の可能性が高い
-    const likelyResolved = matches >= keywords.length * 0.5 && keywords.length > 0
+    const totalMatches = matches + partialMatches
+    
+    // 判定基準を緩和：
+    // - キーワードの30%以上が含まれている
+    // - または、2つ以上のキーワードが含まれている
+    // - または、重要なキーワード（5文字以上）が1つでも含まれている
+    const hasImportantKeyword = keywords.some(k => k.length >= 5 && contentLower.includes(k))
+    const likelyResolved = (
+      (totalMatches >= keywords.length * 0.3 && keywords.length > 0) ||
+      totalMatches >= 2 ||
+      hasImportantKeyword
+    )
     
     return {
       likelyResolved,
-      keywordMatches: matches
+      keywordMatches: Math.floor(totalMatches)
     }
   }
 

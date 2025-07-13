@@ -812,6 +812,10 @@ function TimelineTab({ chapters }: { chapters: Chapter[] }) {
 
 // 伏線タブ
 function ForeshadowingTab({ chapters, projectId }: { chapters: Chapter[]; projectId: string }) {
+  const [isReevaluating, setIsReevaluating] = useState(false)
+  const [reevaluationProgress, setReevaluationProgress] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0) // 再描画用のキー
+  
   // 総章数を計算（最大の章番号）
   const totalChapters = Math.max(...chapters.map(c => c.number), 10)
   const currentChapter = Math.max(...chapters.map(c => c.number), 1)
@@ -870,6 +874,88 @@ function ForeshadowingTab({ chapters, projectId }: { chapters: Chapter[]; projec
 
   // 重要度でソート
   allForeshadowing.sort((a, b) => calculateImportance(b) - calculateImportance(a))
+  
+  // 伏線の再評価機能
+  const reevaluateForeshadowing = async () => {
+    setIsReevaluating(true)
+    setReevaluationProgress('伏線の再評価を開始...')
+    
+    try {
+      // ForeshadowingResolutionValidatorをインポート
+      const { ForeshadowingResolutionValidator } = await import('@/lib/services/foreshadowing-resolution-validator')
+      
+      let updatedCount = 0
+      const updatedChapters: Chapter[] = [...chapters]
+      
+      // 各章を順番に処理
+      for (let i = 0; i < updatedChapters.length; i++) {
+        const chapter = updatedChapters[i]
+        setReevaluationProgress(`第${chapter.number}章を処理中... (${i + 1}/${updatedChapters.length})`)
+        
+        if (!chapter.state.foreshadowing || chapter.state.foreshadowing.length === 0) {
+          continue
+        }
+        
+        let hasUpdates = false
+        const updatedForeshadowing = chapter.state.foreshadowing.map(f => {
+          // 既に回収済みの伏線はスキップ
+          if (f.status === 'revealed') {
+            return f
+          }
+          
+          // 現在の章以降の全ての章で回収チェック
+          for (let j = i; j < updatedChapters.length; j++) {
+            const checkChapter = updatedChapters[j]
+            const quickCheck = ForeshadowingResolutionValidator.quickCheck(
+              checkChapter.content,
+              f.hint
+            )
+            
+            if (quickCheck.likelyResolved) {
+              console.log(`伏線「${f.hint}」が第${checkChapter.number}章で回収されていることを検出`)
+              hasUpdates = true
+              updatedCount++
+              
+              return {
+                ...f,
+                status: 'revealed' as const,
+                chapterRevealed: checkChapter.number,
+                payoff: f.payoff || `第${checkChapter.number}章で回収（再評価により検出）`
+              }
+            }
+          }
+          
+          return f
+        })
+        
+        if (hasUpdates) {
+          chapter.state.foreshadowing = updatedForeshadowing
+        }
+      }
+      
+      // 更新されたデータを保存
+      if (updatedCount > 0) {
+        localStorage.setItem(`shinwa-chapters-${projectId}`, JSON.stringify(updatedChapters))
+        setReevaluationProgress(`${updatedCount}個の伏線の状態を更新しました`)
+        
+        // 3秒後にリフレッシュ
+        setTimeout(() => {
+          setRefreshKey(prev => prev + 1)
+          window.location.reload() // 完全にリロードして状態を更新
+        }, 3000)
+      } else {
+        setReevaluationProgress('更新が必要な伏線はありませんでした')
+      }
+    } catch (error) {
+      console.error('Failed to reevaluate foreshadowing:', error)
+      setReevaluationProgress('エラーが発生しました')
+    } finally {
+      setTimeout(() => {
+        setIsReevaluating(false)
+        setReevaluationProgress('')
+      }, 3000)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -877,22 +963,49 @@ function ForeshadowingTab({ chapters, projectId }: { chapters: Chapter[]; projec
       <ForeshadowingHealthReport projectId={projectId} />
       
       {/* 伏線統計 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🌱 未回収</h4>
-          <p className="text-3xl font-bold text-yellow-600">{plantedForeshadowing.length}</p>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🌱 未回収</h4>
+            <p className="text-3xl font-bold text-yellow-600">{plantedForeshadowing.length}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">✨ 回収済み</h4>
+            <p className="text-3xl font-bold text-green-600">{revealedForeshadowing.length}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🔄 強化中</h4>
+            <p className="text-3xl font-bold text-blue-600">{reinforcedForeshadowing.length}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">📊 平均回収章数</h4>
+            <p className="text-3xl font-bold">{averageRevealChapters.toFixed(1)}</p>
+          </div>
         </div>
+        
+        {/* 再評価ボタン */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">✨ 回収済み</h4>
-          <p className="text-3xl font-bold text-green-600">{revealedForeshadowing.length}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">🔄 強化中</h4>
-          <p className="text-3xl font-bold text-blue-600">{reinforcedForeshadowing.length}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">📊 平均回収章数</h4>
-          <p className="text-3xl font-bold">{averageRevealChapters.toFixed(1)}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">🔍 伏線の再評価</h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                既存の章を再スキャンして、回収済みの伏線を検出します
+              </p>
+            </div>
+            <Button
+              onClick={reevaluateForeshadowing}
+              disabled={isReevaluating || chapters.length === 0}
+              variant="secondary"
+              size="sm"
+            >
+              {isReevaluating ? '処理中...' : '再評価を実行'}
+            </Button>
+          </div>
+          {reevaluationProgress && (
+            <div className="mt-3 text-sm text-blue-600 dark:text-blue-400">
+              {reevaluationProgress}
+            </div>
+          )}
         </div>
       </div>
 
