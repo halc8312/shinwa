@@ -47,6 +47,7 @@ export default function ProjectDashboard() {
   const [characterLocations, setCharacterLocations] = useState<Record<string, CharacterLocation>>({})
   const [worldMapService, setWorldMapService] = useState<WorldMapService | null>(null)
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
+  const [foreshadowingValidation, setForeshadowingValidation] = useState<any>(null)
   const [showValidationSelector, setShowValidationSelector] = useState(false)
   const [characters, setCharacters] = useState<Character[]>([])
   const [isFixing, setIsFixing] = useState(false)
@@ -596,13 +597,26 @@ ${pendingChapter.content}
           if (!result.validationResult.isValid) {
             setExecutionLog(prev => [...prev, '⚠️ 検証で問題が見つかりました'])
             setExecutionLog(prev => [...prev, `検証結果: ${result.validationResult.issues.length}件の問題`])
-            // 自動的に検証セレクターを表示
-            setShowValidationSelector(true)
+            // 検証セレクターは自動表示しない（ユーザーがボタンを押した時のみ表示）
+            setShowValidationSelector(false)
           }
         } else {
           // 検証結果がない場合もログに記録
           setExecutionLog(prev => [...prev, '✓ 検証結果: 問題なし'])
           setValidationResult(null)
+        }
+        
+        // 伏線検証結果を保存
+        if (result.foreshadowingValidation) {
+          setForeshadowingValidation(result.foreshadowingValidation)
+          if (result.foreshadowingValidation.warnings && result.foreshadowingValidation.warnings.length > 0) {
+            setExecutionLog(prev => [...prev, '⚠️ 伏線に関する警告があります'])
+            result.foreshadowingValidation.warnings.forEach((warning: string) => {
+              setExecutionLog(prev => [...prev, `伏線警告: ${warning}`])
+            })
+          }
+        } else {
+          setForeshadowingValidation(null)
         }
         
         // 章を一時的に保存してプレビューを表示
@@ -1057,12 +1071,44 @@ ${pendingChapter.content}
                       <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
                         問題を個別に確認して、修正する項目を選択できます。
                       </p>
+                      
+                      {/* 問題の概要を表示 */}
+                      <div className="mb-3 space-y-2">
+                        {validationResult.issues.slice(0, 3).map((issue, index) => (
+                          <div key={issue.id} className="text-sm border-l-4 border-yellow-400 pl-3">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                issue.severity === 'error' 
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
+                                  : issue.severity === 'warning'
+                                  ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300'
+                                  : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                              }`}>
+                                {issue.severity === 'error' ? 'エラー' : 
+                                 issue.severity === 'warning' ? '警告' : '情報'}
+                              </span>
+                              <span className="font-medium text-yellow-800 dark:text-yellow-200">
+                                {issue.title}
+                              </span>
+                            </div>
+                            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                              {issue.description}
+                            </p>
+                          </div>
+                        ))}
+                        {validationResult.issues.length > 3 && (
+                          <p className="text-xs text-yellow-600 dark:text-yellow-400 italic">
+                            他{validationResult.issues.length - 3}件の問題...
+                          </p>
+                        )}
+                      </div>
+                      
                       <Button
                         size="sm"
                         variant="secondary"
                         onClick={() => setShowValidationSelector(true)}
                       >
-                        問題を確認
+                        すべての問題を確認
                       </Button>
                     </div>
                   )}
@@ -1150,6 +1196,107 @@ ${pendingChapter.content}
                           </div>
                         </dl>
                       </div>
+
+                      {/* 伏線検証の警告 */}
+                      {foreshadowingValidation && foreshadowingValidation.warnings && foreshadowingValidation.warnings.length > 0 && (
+                        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-4">
+                          <h3 className="text-lg font-semibold text-orange-800 dark:text-orange-200 mb-2">
+                            🔍 伏線に関する警告
+                          </h3>
+                          <div className="space-y-2">
+                            {foreshadowingValidation.warnings.map((warning: string, index: number) => (
+                              <div key={index} className="text-sm border-l-4 border-orange-400 pl-3">
+                                <p className="text-orange-700 dark:text-orange-300">
+                                  {warning}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                          {foreshadowingValidation.adjustments && foreshadowingValidation.adjustments.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                                自動調整:
+                              </p>
+                              <div className="space-y-1">
+                                {foreshadowingValidation.adjustments.map((adjustment: string, index: number) => (
+                                  <p key={index} className="text-xs text-orange-600 dark:text-orange-400">
+                                    ✓ {adjustment}
+                                  </p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 伏線情報 */}
+                      {pendingChapter.state.foreshadowing && pendingChapter.state.foreshadowing.length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-3">伏線の管理状況</h3>
+                          <div className="space-y-3">
+                            {pendingChapter.state.foreshadowing.map((f: any) => (
+                              <div 
+                                key={f.id} 
+                                className={`p-3 rounded-lg border ${
+                                  f.status === 'planted' 
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
+                                    : f.status === 'revealed'
+                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+                                    : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">
+                                      {f.hint}
+                                    </p>
+                                    {f.payoff && (
+                                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                        回収: {f.payoff}
+                                      </p>
+                                    )}
+                                    <div className="flex gap-2 mt-2">
+                                      <span className={`text-xs px-2 py-1 rounded-full ${
+                                        f.status === 'planted' 
+                                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
+                                          : f.status === 'revealed'
+                                          ? 'bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200'
+                                          : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-800 dark:text-yellow-200'
+                                      }`}>
+                                        {f.status === 'planted' ? '設置済み' : 
+                                         f.status === 'revealed' ? '回収済み' : 
+                                         '進行中'}
+                                      </span>
+                                      {f.scope && (
+                                        <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                          {f.scope === 'short' ? '短期' : 
+                                           f.scope === 'medium' ? '中期' : '長期'}
+                                        </span>
+                                      )}
+                                      {f.significance && (
+                                        <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                          重要度: {f.significance === 'minor' ? '低' : 
+                                                  f.significance === 'moderate' ? '中' : '高'}
+                                        </span>
+                                      )}
+                                      {f.plannedRevealChapter && f.status === 'planted' && (
+                                        <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-800 dark:text-purple-200">
+                                          回収予定: 第{f.plannedRevealChapter}章
+                                        </span>
+                                      )}
+                                      {f.chapterRevealed && (
+                                        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200">
+                                          回収: 第{f.chapterRevealed}章
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -1164,6 +1311,7 @@ ${pendingChapter.content}
                       setShowChapterPreview(false)
                       setIsExecuting(false)
                       setValidationResult(null)
+                      setForeshadowingValidation(null)
                       setShowValidationSelector(false)
                     }
                   }}
@@ -1193,6 +1341,7 @@ ${pendingChapter.content}
                         setPendingChapter(null)
                         setIsExecuting(false)
                         setValidationResult(null)
+                        setForeshadowingValidation(null)
                         
                         router.push(`/projects/${projectId}/chapters/${pendingChapter.id}`)
                       }
@@ -1220,6 +1369,7 @@ ${pendingChapter.content}
                         setPendingChapter(null)
                         setIsExecuting(false)
                         setValidationResult(null)
+                        setForeshadowingValidation(null)
                         setExecutionLog(prev => [...prev, '章を保存しました。'])
                         
                         // 保存後に章リストを再読み込み（念のため）
