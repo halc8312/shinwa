@@ -91,7 +91,12 @@ export class GenSparkProvider implements AIProvider {
     // この実装では、Gemini 2.0 Flash経由でテキスト生成を行う想定
     
     // サーバーサイドで実行される場合、環境変数からAPIキーを取得
-    const apiKey = this.config.apiKey || process.env.GENSPARK_API_KEY
+    let apiKey = this.config.apiKey || process.env.GENSPARK_API_KEY || process.env.GEMINI_API_KEY
+    
+    // 'genspark-builtin'は実際のキーではないのでスキップ
+    if (apiKey === 'genspark-builtin') {
+      apiKey = process.env.GEMINI_API_KEY || ''
+    }
     
     if (!apiKey) {
       // APIキーがない場合は、基本的なテキスト生成ロジックで代替
@@ -139,8 +144,129 @@ export class GenSparkProvider implements AIProvider {
   }
 
   private generateFallbackResponse(prompt: string, options: AICompletionOptions): string {
-    // シンプルなフォールバック応答
-    return `GenSparkの組み込みAIを使用して応答を生成しています。\n\nプロンプトを受け取りました。より詳細な応答を生成するには、GENSPARK_API_KEYまたはGemini APIキーを設定してください。`
+    // より実用的なフォールバック応答を生成
+    // プロンプトから意図を推測して適切な応答を生成
+    
+    const lowerPrompt = prompt.toLowerCase()
+    
+    // 小説執筆関連の応答
+    if (lowerPrompt.includes('小説') || lowerPrompt.includes('物語') || lowerPrompt.includes('chapter') || lowerPrompt.includes('キャラクター')) {
+      return this.generateNovelContent(prompt)
+    }
+    
+    // プロット・構成関連
+    if (lowerPrompt.includes('プロット') || lowerPrompt.includes('構成') || lowerPrompt.includes('outline')) {
+      return this.generatePlotOutline(prompt)
+    }
+    
+    // キャラクター設定
+    if (lowerPrompt.includes('character') || lowerPrompt.includes('登場人物')) {
+      return this.generateCharacterProfile(prompt)
+    }
+    
+    // デフォルトの応答
+    return `【GenSpark デモモード】
+
+より高品質な生成を行うには、AI設定からGemini APIキーを設定してください。
+
+現在のプロンプト長: ${prompt.length}文字
+Temperature: ${options.temperature ?? 0.7}
+Max Tokens: ${options.maxTokens ?? 2048}
+
+Gemini APIキーを設定すると、以下の機能が利用可能になります：
+- 高品質な小説生成
+- 詳細なキャラクター設定
+- プロット構成の自動生成
+- 長文コンテンツの生成（最大100万トークン）
+
+AI設定 → GenSpark AI → Gemini APIキーを入力してください。`
+  }
+
+  private generateNovelContent(prompt: string): string {
+    return `【第1章：新たな始まり】
+
+朝日が東の空を染める頃、主人公は目を覚ました。
+窓から差し込む柔らかな光が、部屋の中を優しく照らしている。
+
+今日から、新しい生活が始まる。
+期待と不安が入り混じった気持ちを抱えながら、主人公は起き上がった。
+
+「さあ、始めよう」
+
+そう呟いて、主人公は一歩を踏み出した。
+
+---
+
+💡 **より詳細な小説生成には、Gemini APIキーの設定が必要です**
+
+AI設定画面から「GenSpark AI」を選択し、Gemini APIキーを入力することで：
+- より長く詳細な物語の生成
+- キャラクターの深い心理描写
+- 複雑なプロット展開
+- 一貫性のある世界観
+
+などが可能になります。`
+  }
+
+  private generatePlotOutline(prompt: string): string {
+    return `【物語の構成案】
+
+## 序章：世界の紹介
+- 舞台設定の説明
+- 主要キャラクターの登場
+- 日常の描写
+
+## 第一幕：転機
+- 事件の発生
+- 主人公の決意
+- 旅立ち
+
+## 第二幕：試練
+- 困難との遭遇
+- 仲間との出会い
+- 成長の過程
+
+## 第三幕：クライマックス
+- 最大の危機
+- 真実の発覚
+- 決戦
+
+## 終章：決着
+- 問題の解決
+- 新たな日常
+- 未来への示唆
+
+---
+
+💡 **Gemini APIキーを設定すると、より詳細なプロット構成が生成できます**`
+  }
+
+  private generateCharacterProfile(prompt: string): string {
+    return `【キャラクタープロフィール】
+
+**名前**: 未設定
+**年齢**: 20代
+**性別**: 未設定
+**職業**: 未設定
+
+**性格**:
+- 正義感が強い
+- 少し不器用
+- 仲間思い
+
+**背景**:
+主人公は平凡な日常を送っていたが、ある出来事をきっかけに運命が大きく動き出す。
+
+**目標**:
+大切な何かを守るため、困難に立ち向かう決意をする。
+
+**特技**:
+- 諦めない心
+- 仲間を引き寄せる魅力
+
+---
+
+💡 **Gemini APIキーを設定すると、より深いキャラクター設定が生成できます**`
   }
 
   private estimateTokens(text: string): number {

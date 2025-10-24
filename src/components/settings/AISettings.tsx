@@ -218,11 +218,21 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
         )}
 
         {provider === 'genspark' && (
-          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-            <p className="text-sm text-green-700 dark:text-green-400">
-              ✨ GenSpark組み込みAIを使用します。APIキーは不要です。
-            </p>
-          </div>
+          <>
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+              <p className="text-sm text-blue-700 dark:text-blue-400 mb-2">
+                💡 GenSparkはGemini APIを使用します。より高品質な生成のため、Gemini APIキーを設定してください（オプション）。
+              </p>
+            </div>
+            <Input
+              label="Gemini APIキー（オプション）"
+              type="password"
+              value={apiKey === 'genspark-builtin' ? '' : apiKey}
+              onChange={(e) => setApiKey(e.target.value || 'genspark-builtin')}
+              placeholder="AIza..."
+              helperText="空欄の場合は基本的な応答のみ生成されます"
+            />
+          </>
         )}
 
         <AIModelSelector
