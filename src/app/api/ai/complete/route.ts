@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth-options';
 import { OpenAIProvider } from '@/lib/ai/providers/openai';
 import { AnthropicProvider } from '@/lib/ai/providers/anthropic';
+import { GenSparkProvider } from '@/lib/ai/providers/genspark';
 import { AICompletionOptions, AIProvider } from '@/lib/ai/types';
 import { AIUsageService } from '@/lib/services/ai-usage-service';
 import { RetryAIProvider } from '@/lib/ai/retry-provider';
@@ -11,6 +12,7 @@ import { CachedAIProvider } from '@/lib/ai/cache-provider';
 // Server-side AI provider instances
 let openAIProvider: OpenAIProvider | null = null;
 let anthropicProvider: AnthropicProvider | null = null;
+let genSparkProvider: GenSparkProvider | null = null;
 
 // Initialize providers with server-side API keys, retry logic, and caching
 function getProvider(providerName: string): AIProvider {
@@ -56,6 +58,25 @@ function getProvider(providerName: string): AIProvider {
         }) as any; // Cast to keep type compatibility
       }
       return anthropicProvider as AIProvider;
+    
+    case 'genspark':
+      if (!genSparkProvider) {
+        // GenSparkは環境変数からGemini APIキーを取得（オプショナル）
+        const apiKey = process.env.GENSPARK_API_KEY || process.env.GEMINI_API_KEY || '';
+        const baseProvider = new GenSparkProvider({ apiKey });
+        const retryProvider = new RetryAIProvider(baseProvider, {
+          maxRetries: 3,
+          baseDelay: 1000,
+          maxDelay: 10000
+        });
+        genSparkProvider = new CachedAIProvider(retryProvider, {
+          ttl: 3600000, // 1 hour cache
+          maxSize: 100,
+          cacheableModels: ['gemini-2.0-flash-exp', 'genspark-default'],
+          minPromptLength: 100
+        }) as any;
+      }
+      return genSparkProvider as AIProvider;
     
     default:
       throw new Error(`Unknown provider: ${providerName}`);

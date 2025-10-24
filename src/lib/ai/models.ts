@@ -1,7 +1,7 @@
 export interface AIModel {
   id: string
   name: string
-  provider: 'openai' | 'anthropic' | 'custom'
+  provider: 'openai' | 'anthropic' | 'genspark' | 'genspark' | 'custom'
   contextWindow: number
   description: string
   capabilities: string[]
@@ -119,6 +119,45 @@ export const OPENAI_MODELS: AIModel[] = [
   }
 ]
 
+export const GENSPARK_MODELS: AIModel[] = [
+  {
+    id: 'genspark-default',
+    name: 'GenSpark AI (Default)',
+    provider: 'genspark',
+    contextWindow: 1000000,
+    description: 'GenSpark組み込みAI - Gemini 2.0 Flashベース',
+    capabilities: ['text', 'reasoning', 'creative-writing'],
+    pricing: { input: 0, output: 0 } // 無料
+  },
+  {
+    id: 'gemini-2.0-flash-exp',
+    name: 'Gemini 2.0 Flash (Experimental)',
+    provider: 'genspark',
+    contextWindow: 1000000,
+    description: 'Google最新の高速AIモデル（実験版）',
+    capabilities: ['text', 'vision', 'multimodal', 'reasoning'],
+    pricing: { input: 0, output: 0 } // 実験版のため無料
+  },
+  {
+    id: 'gemini-1.5-flash',
+    name: 'Gemini 1.5 Flash',
+    provider: 'genspark',
+    contextWindow: 1000000,
+    description: '高速で効率的なGeminiモデル',
+    capabilities: ['text', 'vision', 'multimodal'],
+    pricing: { input: 0.075, output: 0.3 }
+  },
+  {
+    id: 'gemini-1.5-pro',
+    name: 'Gemini 1.5 Pro',
+    provider: 'genspark',
+    contextWindow: 2000000,
+    description: '最高性能のGeminiモデル',
+    capabilities: ['text', 'vision', 'multimodal', 'reasoning'],
+    pricing: { input: 1.25, output: 5 }
+  }
+]
+
 export const ANTHROPIC_MODELS: AIModel[] = [
   // Claude 3.5 Series
   {
@@ -190,12 +229,12 @@ export const ANTHROPIC_MODELS: AIModel[] = [
   }
 ]
 
-export const DEFAULT_MODELS = [...OPENAI_MODELS, ...ANTHROPIC_MODELS]
+export const DEFAULT_MODELS = [...OPENAI_MODELS, ...ANTHROPIC_MODELS, ...GENSPARK_MODELS]
 
 export function getModelById(modelId: string): AIModel | undefined {
   return DEFAULT_MODELS.find(model => model.id === modelId)
 }
 
-export function getModelsByProvider(provider: 'openai' | 'anthropic'): AIModel[] {
+export function getModelsByProvider(provider: 'openai' | 'anthropic' | 'genspark'): AIModel[] {
   return DEFAULT_MODELS.filter(model => model.provider === provider)
 }

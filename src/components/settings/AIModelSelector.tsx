@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 interface AIModelSelectorProps {
   value: string
   onChange: (modelId: string) => void
-  provider: 'openai' | 'anthropic'
+  provider: 'openai' | 'anthropic' | 'genspark'
   allowCustom?: boolean
 }
 
