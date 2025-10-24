@@ -14,7 +14,7 @@ interface AISettingsProps {
 }
 
 export interface AISettingsData {
-  provider: 'openai' | 'anthropic'
+  provider: 'openai' | 'anthropic' | 'genspark'
   apiKey: string
   model: string
   temperature: number
@@ -23,7 +23,7 @@ export interface AISettingsData {
 
 export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps) {
   const { currentProvider, apiKeys, setCurrentProvider, setApiKey: setStoreApiKey } = useAppStore()
-  const [provider, setProvider] = useState<'openai' | 'anthropic'>(currentProvider || 'openai')
+  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'genspark'>(currentProvider || 'openai')
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('gpt-4.1-mini')
   const [temperature, setTemperature] = useState(0.7)
@@ -34,7 +34,7 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
   useEffect(() => {
     // ストアから既存の設定を読み込む
     if (currentProvider) {
-      setProvider(currentProvider)
+      setProvider(currentProvider as any)
       const storedApiKey = apiKeys[currentProvider]
       if (storedApiKey) {
         setApiKey(storedApiKey)
@@ -64,6 +64,11 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
   }, [provider, currentProvider, apiKeys])
 
   const validateSettings = async () => {
+    // GenSparkは組み込みなのでAPIキーチェック不要
+    if (provider === 'genspark') {
+      return true
+    }
+    
     if (!apiKey) {
       setValidationError('APIキーを入力してください')
       return false
@@ -101,7 +106,7 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
 
     const settings: AISettingsData = {
       provider,
-      apiKey,
+      apiKey: provider === 'genspark' ? 'genspark-builtin' : apiKey,
       model,
       temperature,
       maxTokens
@@ -111,23 +116,76 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
     
     // aiManagerに登録
     aiManager.registerProvider(provider, {
-      apiKey,
+      apiKey: settings.apiKey,
       defaultModel: model
     })
     aiManager.setCurrentProvider(provider)
     
     // ストアを更新
-    setCurrentProvider(provider)
-    setStoreApiKey(provider, apiKey)
+    setCurrentProvider(provider as any)
+    setStoreApiKey(provider, settings.apiKey)
 
     onSave(settings)
     onClose()
   }
 
+  const handleProviderChange = (newProvider: string) => {
+    const typedProvider = newProvider as 'openai' | 'anthropic' | 'genspark'
+    setProvider(typedProvider)
+    
+    if (typedProvider === 'openai') {
+      setModel('gpt-4.1-mini')
+      setApiKey('')
+    } else if (typedProvider === 'anthropic') {
+      setModel('claude-3-5-sonnet-20241022')
+      setApiKey('')
+    } else if (typedProvider === 'genspark') {
+      setModel('genspark-default')
+      setApiKey('genspark-builtin')
+    }
+    
+    setValidationError('')
+  }
+
   const providerOptions = [
     { value: 'openai', label: 'OpenAI' },
-    { value: 'anthropic', label: 'Anthropic' }
+    { value: 'anthropic', label: 'Anthropic' },
+    { value: 'genspark', label: 'GenSpark AI (組み込み)' }
   ]
+
+  const getApiKeyPlaceholder = () => {
+    if (provider === 'openai') return 'sk-...'
+    if (provider === 'anthropic') return 'sk-ant-...'
+    return '組み込みAI（キー不要）'
+  }
+
+  const getApiKeyHelp = () => {
+    if (provider === 'genspark') {
+      return (
+        <>
+          <li>✨ GenSparkの組み込みAIを使用します</li>
+          <li>🚀 APIキーは不要です</li>
+          <li>💡 Gemini 2.0 Flash等の高性能モデルを利用可能</li>
+        </>
+      )
+    } else if (provider === 'openai') {
+      return (
+        <>
+          <li>1. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">OpenAI Platform</a> にアクセス</li>
+          <li>2. 「Create new secret key」をクリック</li>
+          <li>3. 生成されたキーをコピーして上記に貼り付け</li>
+        </>
+      )
+    } else {
+      return (
+        <>
+          <li>1. <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="underline">Anthropic Console</a> にアクセス</li>
+          <li>2. 「Create Key」をクリック</li>
+          <li>3. 生成されたキーをコピーして上記に貼り付け</li>
+        </>
+      )
+    }
+  }
 
   return (
     <Modal
@@ -143,24 +201,29 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
           </label>
           <Select
             value={provider}
-            onChange={(e) => {
-              setProvider(e.target.value as 'openai' | 'anthropic')
-              setModel(e.target.value === 'openai' ? 'gpt-4.1-mini' : 'claude-3-5-sonnet-20241022')
-              setApiKey('')
-              setValidationError('')
-            }}
+            onChange={(e) => handleProviderChange(e.target.value)}
             options={providerOptions}
           />
         </div>
 
-        <Input
-          label="APIキー"
-          type="password"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder={`${provider === 'openai' ? 'sk-' : 'sk-ant-'}...`}
-          error={validationError}
-        />
+        {provider !== 'genspark' && (
+          <Input
+            label="APIキー"
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={getApiKeyPlaceholder()}
+            error={validationError}
+          />
+        )}
+
+        {provider === 'genspark' && (
+          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+            <p className="text-sm text-green-700 dark:text-green-400">
+              ✨ GenSpark組み込みAIを使用します。APIキーは不要です。
+            </p>
+          </div>
+        )}
 
         <AIModelSelector
           value={model}
@@ -204,22 +267,10 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
 
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
           <h4 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">
-            APIキーの取得方法
+            {provider === 'genspark' ? '組み込みAIについて' : 'APIキーの取得方法'}
           </h4>
           <ul className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
-            {provider === 'openai' ? (
-              <>
-                <li>1. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">OpenAI Platform</a> にアクセス</li>
-                <li>2. 「Create new secret key」をクリック</li>
-                <li>3. 生成されたキーをコピーして上記に貼り付け</li>
-              </>
-            ) : (
-              <>
-                <li>1. <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="underline">Anthropic Console</a> にアクセス</li>
-                <li>2. 「Create Key」をクリック</li>
-                <li>3. 生成されたキーをコピーして上記に貼り付け</li>
-              </>
-            )}
+            {getApiKeyHelp()}
           </ul>
         </div>
 
@@ -232,7 +283,7 @@ export default function AISettings({ isOpen, onClose, onSave }: AISettingsProps)
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isValidating || !apiKey || !model}
+            disabled={isValidating || (provider !== 'genspark' && !apiKey) || !model}
           >
             {isValidating ? '検証中...' : '保存'}
           </Button>

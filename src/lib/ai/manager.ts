@@ -2,7 +2,7 @@ import { AIProvider, AIProviderConfig, AICompletionOptions, AICompletionResponse
 import { AIModel } from './models'
 import { aiClient } from './client'
 
-export type ProviderType = 'openai' | 'anthropic' | 'custom'
+export type ProviderType = 'openai' | 'anthropic' | 'genspark' | 'custom'
 
 export interface CustomProvider {
   name: string
@@ -81,7 +81,7 @@ export class AIManager {
 
   getAllProviders(): string[] {
     // サポートされているプロバイダーのリストを返す
-    return ['openai', 'anthropic']
+    return ['openai', 'anthropic', 'genspark']
   }
 
   async complete(options: AICompletionOptions): Promise<AICompletionResponse> {
@@ -108,6 +108,8 @@ export class AIManager {
       case 'openai':
         return modelId.startsWith('gpt-') || modelId.startsWith('o1-')
       case 'anthropic':
+      case 'genspark':
+        return modelId.startsWith('gemini-') || modelId === 'genspark-default'
         return modelId.startsWith('claude-')
       default:
         return true
