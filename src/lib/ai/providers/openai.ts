@@ -1,25 +1,22 @@
-import OpenAI from 'openai'
+import { OpenAI } from 'openai'
 import { 
   AIProvider, 
   AIProviderConfig, 
   AICompletionOptions, 
-  AICompletionResponse, 
-  AIStreamResponse,
+  AICompletionResponse,
   AIError 
 } from '../types'
 
+// Manusの組み込みAIはOpenAI互換APIとして提供され、
+// 環境変数 (OPENAI_API_KEY, OPENAI_BASE_URL) から自動的に設定されます。
 export class OpenAIProvider implements AIProvider {
   name = 'OpenAI'
   private client: OpenAI
-  private config: AIProviderConfig
 
-  constructor(config: AIProviderConfig) {
-    this.config = config
-    this.client = new OpenAI({
-      apiKey: config.apiKey,
-      baseURL: config.baseUrl,
-      organization: config.organization
-    })
+  constructor(config?: AIProviderConfig) {
+    // APIキーとBase URLは環境変数から自動的に取得されるため、引数は無視します。
+    // クライアントの初期化は、環境変数が設定されていることを前提とします。
+    this.client = new OpenAI()
   }
 
   async complete(options: AICompletionOptions): Promise<AICompletionResponse> {
@@ -50,54 +47,18 @@ export class OpenAIProvider implements AIProvider {
     }
   }
 
-  async *completeStream(options: AICompletionOptions): AsyncGenerator<AIStreamResponse> {
-    try {
-      const stream = await this.client.chat.completions.create({
-        model: options.model,
-        messages: options.messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens,
-        top_p: options.topP,
-        stop: options.stopSequences,
-        stream: true
-      })
-
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || ''
-        const done = chunk.choices[0]?.finish_reason !== null
-        
-        yield {
-          content,
-          done
-        }
-      }
-    } catch (error: any) {
-      throw this.handleError(error)
-    }
-  }
-
+  // Manusの組み込みAIを使用する場合、APIキーの検証は不要です。
+  // サービスが利用可能であれば、常にtrueを返します。
   async validateApiKey(): Promise<boolean> {
-    try {
-      await this.client.models.list()
-      return true
-    } catch (error) {
-      return false
-    }
+    return true
   }
 
   private handleError(error: any): AIError {
+    // エラーハンドリングを簡素化
     const aiError = new Error(error.message) as AIError
     aiError.provider = this.name
     aiError.statusCode = error.status
     aiError.details = error.response?.data
-    
-    if (error.status === 401) {
-      aiError.message = 'Invalid API key for OpenAI'
-    } else if (error.status === 429) {
-      aiError.message = 'Rate limit exceeded for OpenAI'
-    } else if (error.status === 500) {
-      aiError.message = 'OpenAI server error'
-    }
     
     return aiError
   }

@@ -398,8 +398,9 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Creat
   }
 
   const handleAISettingsSave = (settings: AISettingsData) => {
-    setCurrentProvider(settings.provider)
-    setApiKey(settings.provider, settings.apiKey)
+    // 組み込みAIを使用するため、プロバイダーは'openai'に固定
+    setCurrentProvider('openai')
+    setApiKey('openai', settings.apiKey)
     setError(null) // APIキー設定後はエラーをクリア
   }
 

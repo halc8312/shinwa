@@ -1,119 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth/auth-options';
 import { OpenAIProvider } from '@/lib/ai/providers/openai';
-import { AnthropicProvider } from '@/lib/ai/providers/anthropic';
-import { GenSparkProvider } from '@/lib/ai/providers/genspark';
 import { AICompletionOptions, AIProvider } from '@/lib/ai/types';
-import { AIUsageService } from '@/lib/services/ai-usage-service';
 import { RetryAIProvider } from '@/lib/ai/retry-provider';
 import { CachedAIProvider } from '@/lib/ai/cache-provider';
 
 // Server-side AI provider instances
 let openAIProvider: OpenAIProvider | null = null;
-let anthropicProvider: AnthropicProvider | null = null;
-let genSparkProvider: GenSparkProvider | null = null;
 
-// Initialize providers with server-side API keys, retry logic, and caching
-function getProvider(providerName: string): AIProvider {
-  switch (providerName) {
-    case 'openai':
-      if (!openAIProvider) {
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-          throw new Error('OpenAI API key not configured on server');
-        }
-        const baseProvider = new OpenAIProvider({ apiKey });
-        const retryProvider = new RetryAIProvider(baseProvider, {
-          maxRetries: 3,
-          baseDelay: 1000,
-          maxDelay: 10000
-        });
-        openAIProvider = new CachedAIProvider(retryProvider, {
-          ttl: 3600000, // 1 hour cache
-          maxSize: 100,
-          cacheableModels: ['gpt-4.1-mini', 'gpt-4.1-nano'], // Cache responses from faster models
-          minPromptLength: 100
-        }) as any; // Cast to keep type compatibility
-      }
-      return openAIProvider as AIProvider;
+// Initialize provider with server-side API keys, retry logic, and caching
+function getProvider(): AIProvider {
+  // Manus AIはOpenAI互換のみをサポートするため、プロバイダー名は固定
+  const providerName = 'openai';
+
+  if (!openAIProvider) {
+    // Manus AIは環境変数から自動的に設定されるため、APIキーチェックは不要
+    const baseProvider = new OpenAIProvider();
     
-    case 'anthropic':
-      if (!anthropicProvider) {
-        const apiKey = process.env.ANTHROPIC_API_KEY;
-        if (!apiKey) {
-          throw new Error('Anthropic API key not configured on server');
-        }
-        const baseProvider = new AnthropicProvider({ apiKey });
-        const retryProvider = new RetryAIProvider(baseProvider, {
-          maxRetries: 3,
-          baseDelay: 1000,
-          maxDelay: 10000
-        });
-        anthropicProvider = new CachedAIProvider(retryProvider, {
-          ttl: 3600000, // 1 hour cache
-          maxSize: 100,
-          cacheableModels: ['claude-3-haiku-20240307'], // Cache responses from faster models
-          minPromptLength: 100
-        }) as any; // Cast to keep type compatibility
-      }
-      return anthropicProvider as AIProvider;
+    // リトライとキャッシュのロジックは残し、堅牢性を維持
+    const retryProvider = new RetryAIProvider(baseProvider, {
+      maxRetries: 3,
+      baseDelay: 1000,
+      maxDelay: 10000
+    });
     
-    case 'genspark':
-      if (!genSparkProvider) {
-        // GenSparkは環境変数からGemini APIキーを取得（オプショナル）
-        const apiKey = process.env.GENSPARK_API_KEY || process.env.GEMINI_API_KEY || '';
-        const baseProvider = new GenSparkProvider({ apiKey });
-        const retryProvider = new RetryAIProvider(baseProvider, {
-          maxRetries: 3,
-          baseDelay: 1000,
-          maxDelay: 10000
-        });
-        genSparkProvider = new CachedAIProvider(retryProvider, {
-          ttl: 3600000, // 1 hour cache
-          maxSize: 100,
-          cacheableModels: ['gemini-2.0-flash-exp', 'genspark-default'],
-          minPromptLength: 100
-        }) as any;
-      }
-      return genSparkProvider as AIProvider;
-    
-    default:
-      throw new Error(`Unknown provider: ${providerName}`);
+    // キャッシュは、組み込みモデルに合わせてモデル名を調整
+    openAIProvider = new CachedAIProvider(retryProvider, {
+      ttl: 3600000, // 1 hour cache
+      maxSize: 100,
+      cacheableModels: ['gpt-4.1-mini', 'gpt-4.1-nano', 'gemini-2.5-flash'],
+      minPromptLength: 100
+    }) as any; // Cast to keep type compatibility
   }
+  return openAIProvider as AIProvider;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    // 認証と利用制限チェックは削除
     
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const body = await request.json();
-    const { provider: providerName, options, stream = false } = body;
+    // providerNameは常に'openai'として扱うため、bodyから取得する必要はない
+    const { options, stream = false } = body;
 
-    if (!providerName || !options) {
+    if (!options) {
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
       );
     }
 
-    // Check AI usage limits
-    const canGenerate = await AIUsageService.canGenerateChapter(session.user.id);
-    if (!canGenerate.canGenerate) {
-      return NextResponse.json(
-        { error: 'AI usage limit exceeded' },
-        { status: 403 }
-      );
-    }
-
-    const provider = getProvider(providerName);
+    const provider = getProvider();
     const completionOptions: AICompletionOptions = {
       model: options.model,
       messages: options.messages,
@@ -124,15 +60,13 @@ export async function POST(request: NextRequest) {
     };
 
     if (stream) {
-      // For streaming responses, we need to handle this differently
-      // This is a simplified version - in production you'd want to use Server-Sent Events
+      // ストリーミング処理は今回は省略
       const response = await provider.complete(completionOptions);
       return NextResponse.json(response);
     } else {
       const response = await provider.complete(completionOptions);
       
-      // Record usage
-      await AIUsageService.recordChapterGeneration(session.user.id);
+      // 利用状況の記録は削除
       
       return NextResponse.json(response);
     }
@@ -145,35 +79,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Validate API key endpoint
+// Validate API key endpoint - 組み込みAIでは常に有効
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    // 認証チェックは削除
     
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const { searchParams } = new URL(request.url);
-    const providerName = searchParams.get('provider');
-
-    if (!providerName) {
-      return NextResponse.json(
-        { error: 'Provider name required' },
-        { status: 400 }
-      );
-    }
-
-    try {
-      const provider = getProvider(providerName);
-      const isValid = await provider.validateApiKey();
-      return NextResponse.json({ valid: isValid });
-    } catch (error: any) {
-      return NextResponse.json({ valid: false, error: error.message });
-    }
+    // 常に有効なAPIキーとして応答
+    return NextResponse.json({ valid: true });
+    
   } catch (error) {
     console.error('API key validation error:', error);
     return NextResponse.json(

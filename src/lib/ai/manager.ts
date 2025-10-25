@@ -1,74 +1,28 @@
-import { AIProvider, AIProviderConfig, AICompletionOptions, AICompletionResponse } from './types'
-import { AIModel } from './models'
+import { AIProviderConfig, AICompletionOptions, AICompletionResponse } from './types'
 import { aiClient } from './client'
 
-export type ProviderType = 'openai' | 'anthropic' | 'genspark' | 'custom'
-
-export interface CustomProvider {
-  name: string
-  apiKey: string
-  baseUrl: string
-  headers?: Record<string, string>
-}
+export type ProviderType = 'openai'
 
 export class AIManager {
-  private currentProvider: string | null = null
-  private customProviders: Map<string, CustomProvider> = new Map()
+  private currentProvider: string | null = 'openai' // Manus AIはOpenAI互換なので、デフォルトを'openai'に設定
 
   constructor() {
-    this.loadProvidersFromStorage()
+    // 組み込みAIを使用するため、ストレージからのプロバイダー読み込みは不要
   }
 
-  private loadProvidersFromStorage() {
-    if (typeof window === 'undefined') return
-    
-    const stored = localStorage.getItem('shinwa-ai-providers')
-    if (stored) {
-      try {
-        const data = JSON.parse(stored)
-        if (data.customProviders) {
-          Object.entries(data.customProviders).forEach(([name, config]) => {
-            this.customProviders.set(name, config as CustomProvider)
-          })
-        }
-      } catch (error) {
-        console.error('Failed to load AI providers from storage:', error)
-      }
-    }
-  }
-
-  private saveProvidersToStorage() {
-    if (typeof window === 'undefined') return
-    
-    const data = {
-      customProviders: Object.fromEntries(this.customProviders)
-    }
-    localStorage.setItem('shinwa-ai-providers', JSON.stringify(data))
-  }
-
+  // 組み込みAIを使用するため、プロバイダーの登録は不要
   registerProvider(name: string, config: AIProviderConfig): void {
-    // プロバイダー名を記録するだけで、実際の初期化はサーバーサイドで行う
-    if (!this.currentProvider) {
-      this.currentProvider = name
-    }
+    // 組み込みAIを使用するため、何もしません
   }
 
-  registerCustomProvider(config: CustomProvider): void {
-    this.customProviders.set(config.name, config)
-    this.saveProvidersToStorage()
-  }
-
-  removeCustomProvider(name: string): void {
-    this.customProviders.delete(name)
-    this.saveProvidersToStorage()
-  }
-
-  getCustomProviders(): CustomProvider[] {
-    return Array.from(this.customProviders.values())
-  }
+  // カスタムプロバイダーのロジックは削除
+  // registerCustomProvider, removeCustomProvider, getCustomProviders, saveProvidersToStorage, loadProvidersFromStorage は削除
 
   setCurrentProvider(name: string): void {
-    this.currentProvider = name
+    // 組み込みAIのみをサポートするため、'openai'以外は無視
+    if (name === 'openai') {
+      this.currentProvider = name
+    }
   }
 
   getCurrentProvider(): string | null {
@@ -80,8 +34,8 @@ export class AIManager {
   }
 
   getAllProviders(): string[] {
-    // サポートされているプロバイダーのリストを返す
-    return ['openai', 'anthropic', 'genspark']
+    // Manus AIはOpenAI互換のみをサポート
+    return ['openai']
   }
 
   async complete(options: AICompletionOptions): Promise<AICompletionResponse> {
@@ -89,6 +43,7 @@ export class AIManager {
       throw new Error('No AI provider configured')
     }
     
+    // 常に 'openai' プロバイダーで呼び出す
     return aiClient.complete(this.currentProvider, options)
   }
 
@@ -96,24 +51,19 @@ export class AIManager {
     providerName: string, 
     options: AICompletionOptions
   ): Promise<AICompletionResponse> {
-    return aiClient.complete(providerName, options)
+    // 常に 'openai' プロバイダーで呼び出す
+    return aiClient.complete('openai', options)
   }
 
   async validateApiKey(providerName: string): Promise<boolean> {
-    return aiClient.validateApiKey(providerName)
+    // 組み込みAIを使用するため、常にtrueを返す
+    return true
   }
 
   isModelSupported(modelId: string, providerName: string): boolean {
-    switch (providerName.toLowerCase()) {
-      case 'openai':
-        return modelId.startsWith('gpt-') || modelId.startsWith('o1-')
-      case 'anthropic':
-      case 'genspark':
-        return modelId.startsWith('gemini-') || modelId === 'genspark-default'
-        return modelId.startsWith('claude-')
-      default:
-        return true
-    }
+    // Manus AIがサポートするモデルのみをチェック
+    const supportedModels = ['gpt-4.1-mini', 'gpt-4.1-nano', 'gemini-2.5-flash']
+    return supportedModels.includes(modelId)
   }
 }
 
