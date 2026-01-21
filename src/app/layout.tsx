@@ -1,12 +1,9 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import AIProvider from '@/components/providers/AIProvider'
 import AuthProvider from '@/components/providers/AuthProvider'
 import { ToastProvider } from '@/lib/contexts/ToastContext'
 import Toast from '@/components/ui/Toast'
 import './globals.css'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Shinwa - AI Novel Writing Engine',
@@ -21,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className={inter.className}>
+      <body>
         <AuthProvider>
           <AIProvider>
             <ToastProvider>
