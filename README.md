@@ -44,6 +44,24 @@ npm run dev
 
 http://localhost:3000 でアプリケーションにアクセスできます。
 
+## GitHub Pages へのデプロイ
+
+このリポジトリは GitHub Pages で静的ホスティングできるように設定されています。`main` ブランチに push すると、`deploy-pages.yml` が実行されて `out/` を公開します。
+
+### 注意点（静的サイト制約）
+- GitHub Pages は静的ホスティングのため、API ルート・認証・Stripe・DB などのサーバー機能は動作しません。
+- AI 生成などのサーバー依存機能は GitHub Pages では利用できません。
+- フル機能を利用する場合は、従来どおりサーバーを持つ環境（Render など）でのデプロイが必要です。
+
+### ローカルでの確認方法
+```bash
+# GitHub Pages と同じ静的ビルド
+GITHUB_PAGES=true npm run build
+
+# out/ を簡易サーバーで確認（任意）
+npx serve out
+```
+
 ## 使い方
 
 ### AI設定
