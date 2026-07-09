@@ -8,10 +8,11 @@ interface AppState {
   currentChapterIndex: number
   isWriting: boolean
   executionHistory: string[]
-  currentProvider: 'openai' | 'anthropic' | null
+  currentProvider: 'openai' | 'anthropic' | 'genspark' | null
   apiKeys: {
     openai?: string
     anthropic?: string
+    genspark?: string
   }
   
   setCurrentProject: (project: Project | null) => void
@@ -22,8 +23,8 @@ interface AppState {
   setIsWriting: (isWriting: boolean) => void
   addToExecutionHistory: (step: string) => void
   clearExecutionHistory: () => void
-  setCurrentProvider: (provider: 'openai' | 'anthropic' | null) => void
-  setApiKey: (provider: 'openai' | 'anthropic', key: string) => void
+  setCurrentProvider: (provider: 'openai' | 'anthropic' | 'genspark' | null) => void
+  setApiKey: (provider: 'openai' | 'anthropic' | 'genspark', key: string) => void
 }
 
 export const useAppStore = create<AppState>()(
