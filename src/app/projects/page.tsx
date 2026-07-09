@@ -9,7 +9,6 @@ import Button from '@/components/ui/Button'
 import Link from 'next/link'
 import AISettings, { AISettingsData } from '@/components/settings/AISettings'
 import { useAppStore } from '@/lib/store'
-// import { useSession } from 'next-auth/react' // 認証スキップのため削除
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import { SkeletonList } from '@/components/ui/Skeleton'
@@ -20,7 +19,6 @@ export default function ProjectsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAISettings, setShowAISettings] = useState(false)
   const { setCurrentProvider, setApiKey } = useAppStore()
-  // const { status } = useSession() // 認証スキップのため削除
 
   const loadProjects = async () => {
     setIsLoading(true)
@@ -63,9 +61,8 @@ export default function ProjectsPage() {
   }
 
   const handleAISettingsSave = (settings: AISettingsData) => {
-    // 組み込みAIを使用するため、プロバイダーは'openai'に固定
-    setCurrentProvider('openai')
-    setApiKey('openai', settings.apiKey)
+    setCurrentProvider(settings.provider)
+    setApiKey(settings.provider, settings.apiKey)
   }
 
   return (

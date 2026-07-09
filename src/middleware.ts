@@ -1,14 +1,20 @@
+import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
-// 認証をスキップするため、ミドルウェアを無効化
-export function middleware(req: Request) {
-  return NextResponse.next()
-}
+export default withAuth(
+  function middleware(req) {
+    return NextResponse.next()
+  },
+  {
+    callbacks: {
+      authorized: ({ token }) => !!token,
+    },
+  }
+)
 
 export const config = {
   matcher: [
-    // 認証スキップのため、matcherを空にするか、コメントアウト
-    // '/projects/:path*',
-    // '/account/:path*',
+    '/projects/:path*',
+    '/account/:path*',
   ]
 }

@@ -6,8 +6,7 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
 export const authOptions: NextAuthOptions = {
-  // 認証をスキップするため、adapterを無効化
-  // adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -16,20 +15,41 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        // 組み込みAIの動作確認のため、認証をスキップしダミーユーザーを返す
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('メールアドレスとパスワードを入力してください')
+        }
+
+        const user = await prisma.user.findUnique({
+          where: {
+            email: credentials.email
+          }
+        })
+
+        if (!user || !user.password) {
+          throw new Error('メールアドレスまたはパスワードが正しくありません')
+        }
+
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password,
+          user.password
+        )
+
+        if (!isPasswordValid) {
+          throw new Error('メールアドレスまたはパスワードが正しくありません')
+        }
+
         return {
-          id: 'dummy-user-id',
-          email: credentials?.email || 'dummy@example.com',
-          name: 'Dummy User',
-          image: null
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image
         }
       }
     }),
-    // Google認証を無効化
-    // GoogleProvider({
-    //   clientId: process.env.GOOGLE_CLIENT_ID!,
-    //   clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    // })
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    })
   ],
   session: {
     strategy: 'jwt'

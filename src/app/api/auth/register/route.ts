@@ -50,11 +50,10 @@ export async function POST(request: Request) {
       name: user.name
     })
   } catch (error) {
-    // データベース接続の問題を回避するため、ダミーユーザーを返す
-    return NextResponse.json({
-      id: 'dummy-user-id',
-      email: email,
-      name: name
-    }, { status: 200 })
+    console.error('Registration error:', error)
+    return NextResponse.json(
+      { error: 'ユーザー登録に失敗しました' },
+      { status: 500 }
+    )
   }
 }

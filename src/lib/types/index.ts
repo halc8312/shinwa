@@ -241,7 +241,7 @@ export interface AISettings {
 
 // API設定（プロバイダーとキー）
 export interface AIProviderSettings {
-  provider: 'openai'
+  provider: 'openai' | 'anthropic'
   apiKey: string
 }
 

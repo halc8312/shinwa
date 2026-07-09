@@ -72,8 +72,7 @@ const FEATURE_DESCRIPTIONS = {
 
 export default function AdvancedAISettings({ isOpen, onClose, projectId }: AdvancedAISettingsProps) {
   const [modelSettings, setModelSettings] = useState<AIModelSettings>(DEFAULT_MODEL_SETTINGS)
-  const provider = 'openai' // Manus組み込みAIに固定
-  const [providerState, setProvider] = useState<'openai' | 'anthropic'>('openai')
+  const [provider, setProvider] = useState<'openai' | 'anthropic'>('openai')
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const [hasChanges, setHasChanges] = useState(false)
 
@@ -89,16 +88,16 @@ export default function AdvancedAISettings({ isOpen, onClose, projectId }: Advan
       }
     }
 
-    // プロバイダー設定の読み込みを削除（'openai'に固定）
-    // const aiSettings = localStorage.getItem('shinwa-ai-settings')
-    // if (aiSettings) {
-    //   try {
-    //     const parsed = JSON.parse(aiSettings)
-    //     setProvider(parsed.provider || 'openai')
-    //   } catch (error) {
-    //     console.error('Failed to load provider settings:', error)
-    //   }
-    // }
+    // プロバイダー設定を読み込む
+    const aiSettings = localStorage.getItem('shinwa-ai-settings')
+    if (aiSettings) {
+      try {
+        const parsed = JSON.parse(aiSettings)
+        setProvider(parsed.provider || 'openai')
+      } catch (error) {
+        console.error('Failed to load provider settings:', error)
+      }
+    }
   }, [projectId])
 
   const handleModelChange = (feature: keyof AIModelSettings, field: 'model' | 'temperature' | 'maxTokens', value: any) => {
@@ -136,8 +135,7 @@ export default function AdvancedAISettings({ isOpen, onClose, projectId }: Advan
     })
   }
 
-  // 組み込みAIはOpenAI互換のみをサポートするため、providerは'openai'に固定
-  const availableModels = getModelsByProvider('openai').filter(m => ['gpt-4.1-mini', 'gpt-4.1-nano', 'gemini-2.5-flash'].includes(m.id))
+  const availableModels = getModelsByProvider(provider)
   const modelOptions = availableModels.map(model => ({
     value: model.id,
     label: `${model.name} (${model.contextWindow.toLocaleString()} tokens)`

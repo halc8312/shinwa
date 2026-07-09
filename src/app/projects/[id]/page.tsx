@@ -358,17 +358,15 @@ export default function ProjectDashboard() {
 
   const handleAISettingsSave = async (settings: AISettingsData) => {
     // AI設定の保存とプロバイダーの登録
-    // 組み込みAIを使用するため、プロバイダーの登録・設定は不要
-    // aiManager.registerProvider(settings.provider, {
-    //   apiKey: settings.apiKey,
-    //   defaultModel: settings.model
-    // })
-    // aiManager.setCurrentProvider(settings.provider)
+    aiManager.registerProvider(settings.provider, {
+      apiKey: settings.apiKey,
+      defaultModel: settings.model
+    })
+    aiManager.setCurrentProvider(settings.provider)
     
     // ストアを更新
-    // 組み込みAIを使用するため、プロバイダーは'openai'に固定
-    setCurrentProvider('openai')
-    setApiKey('openai', settings.apiKey)
+    setCurrentProvider(settings.provider)
+    setApiKey(settings.provider, settings.apiKey)
 
     // プロジェクト設定に保存
     if (project) {
