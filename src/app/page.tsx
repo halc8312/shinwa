@@ -87,6 +87,11 @@ export default function Home() {
               </Link>
             </>
           )}
+          <Link href="/trpg">
+            <Button size="lg" variant="secondary" className="w-full sm:w-auto">
+              TRPGシナリオを作る
+            </Button>
+          </Link>
           <a 
             href="https://github.com/yourusername/shinwa" 
             target="_blank" 

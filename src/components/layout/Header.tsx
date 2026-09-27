@@ -24,6 +24,11 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden sm:flex items-center space-x-4">
+            <Link href="/trpg">
+              <Button variant="ghost" size="sm">
+                TRPGシナリオ
+              </Button>
+            </Link>
             {session ? (
               <>
                 <Link href="/projects">
@@ -105,6 +110,14 @@ export default function Header() {
       {mobileMenuOpen && (
         <div className="sm:hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
           <div className="px-2 pt-2 pb-3 space-y-1">
+            <Link href="/trpg" onClick={() => setMobileMenuOpen(false)}>
+              <button className="w-full flex items-center px-3 py-3 min-h-[44px] rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <svg className="h-5 w-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm4 3h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01" />
+                </svg>
+                TRPGシナリオ
+              </button>
+            </Link>
             {session ? (
               <>
                 <Link href="/projects" onClick={() => setMobileMenuOpen(false)}>
